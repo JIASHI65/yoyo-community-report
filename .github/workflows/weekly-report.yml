@@ -2,22 +2,14 @@ name: Weekly Community Report
 
 on:
   schedule:
-    # 每周一 09:00 北京时区（UTC+8 = UTC 01:00）
-    - cron: '0 1 * * 1'
+    - cron: '0 1 * * 1'   # 每周一 09:00 北京时区
   workflow_dispatch:
-    inputs:
-      reason:
-        description: 'Reason for manual trigger'
-        required: false
-        default: 'Manual run'
 
 jobs:
   generate-report:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pages: write
-      id-token: write
 
     steps:
       - name: Checkout repo
@@ -39,12 +31,7 @@ jobs:
           git config user.name "Weekly Report Bot"
           git config user.email "bot@yoyo-creative-studio.com"
           git add index.html
-          git diff --staged --quiet || (git commit -m "chore: auto weekly report $(date +%Y-%m-%d)" && git push origin main)
-
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
-        if: github.ref == 'refs/heads/main'
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./
-          enable_jekyll: false
+          git diff --staged --quiet || (
+            git commit -m "chore: auto weekly report $(date +%Y-%m-%d)"
+            git push origin main
+          )
