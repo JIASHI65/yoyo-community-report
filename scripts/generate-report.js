@@ -408,10 +408,10 @@ async function main() {
     allMsgs = allMsgs.concat(all);
   }
   
-  const curIds = new Set(curMsgs.map(m => m.id));
-  const prevMsgs = allMsgs.filter(m => !curIds.has(m.id));
+  var curIds = new Set(curMsgs.map(function(m) { return m.id; }));
+  var prevMsgs = allMsgs.filter(function(m) { return !curIds.has(m.id); });
   console.log(`This: ${curMsgs.length}, Prev: ${prevMsgs.length}`);
-  const cur = analyze(curMsgs), prev = analyze(prevMsgs);
+  var cur_analyzed = analyze(curMsgs), prev_analyzed = analyze(prevMsgs);
 
   const now = new Date();
   const ws = new Date(now); ws.setDate(ws.getDate() - ws.getDay() - 6);
@@ -421,10 +421,10 @@ async function main() {
   const pe = new Date(we); pe.setDate(pe.getDate() - 7);
   const prevLabel = `${fmtDate(pp)}-${fmtDate(pe)}`;
 
-  const html = genHTML(cur, prev, label, prevLabel);
+  const html = genHTML(cur_analyzed, prev_analyzed, label, prevLabel);
   require("fs").writeFileSync("index.html", html, "utf-8");
   console.log(`✅ Saved to index.html · ${label}: ${cur.total} msgs, ${cur.authors} auth`);
-  await pushFeishu(cur, prev, label, prevLabel);
+  await pushFeishu(cur_analyzed, prev_analyzed, label, prevLabel);
 }
 
 main().catch(e => { console.error("❌", e.message); process.exit(1); });
