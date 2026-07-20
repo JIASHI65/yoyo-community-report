@@ -1,6 +1,12 @@
 const DISCORD_TOKEN = process.env.DISCORD_BOT_TOKEN;
 const FEISHU_WEBHOOK = process.env.FEISHU_WEBHOOK_URL;
-const CHANNEL_IDS = ["1458349180748828757"];
+const GUILD_ID = "1458340952358785193";
+const SKIP_CHANNEL_PATTERNS = ["log","welcome","rules","faq","reward","test"];
+async function fetchAllChannels() {
+  var res = await fetch("https://discord.com/api/v10/guilds/" + GUILD_ID + "/channels", { headers: { Authorization: "Bot " + DISCORD_TOKEN } });
+  var channels = await res.json();
+  return channels.filter(function(c) { return c.type === 0 && !SKIP_CHANNEL_PATTERNS.some(function(p) { return c.name.includes(p); }); });
+}
 const REPORT_URL = "https://jiashi65.github.io/yoyo-community-report/";
 
 const KOC_DM_STATIC = {
@@ -392,8 +398,16 @@ async function pushFeishu(cur, prev, label, prevLabel) {
 async function main() {
   if (!DISCORD_TOKEN) { console.error("Missing DISCORD_BOT_TOKEN"); process.exit(1); }
   console.log("Starting weekly report...");
-  const curMsgs = await fetchDiscordMessages(CHANNEL_IDS[0], 7);
-  const allMsgs = await fetchDiscordMessages(CHANNEL_IDS[0], 14);
+    var allChannels = await fetchAllChannels();
+  var curMsgs = [], allMsgs = [];
+  for (var ci = 0; ci < allChannels.length; ci++) {
+    console.log('Scanning #' + allChannels[ci].name + '...');
+    var cur = await fetchDiscordMessages(allChannels[ci].id, 7);
+    var all = await fetchDiscordMessages(allChannels[ci].id, 14);
+    curMsgs = curMsgs.concat(cur);
+    allMsgs = allMsgs.concat(all);
+  }
+  
   const curIds = new Set(curMsgs.map(m => m.id));
   const prevMsgs = allMsgs.filter(m => !curIds.has(m.id));
   console.log(`This: ${curMsgs.length}, Prev: ${prevMsgs.length}`);
