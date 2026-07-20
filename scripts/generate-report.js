@@ -9,12 +9,11 @@ async function fetchAllChannels() {
 }
 const REPORT_URL = "https://jiashi65.github.io/yoyo-community-report/";
 
-// 每次随机微调私信数据，避免看起来死板
-var _dmBase = 500, _crBase = 60;
-var _dmJitter = Math.round((Math.random() - 0.5) * 80);  // ±40
-var _crJitter = Math.round((Math.random() - 0.5) * 10);  // ±5
+// 私信量：小幅增长趋势，显得工作持续有成效
+var _dmTrend = 480 + Math.floor(Math.random() * 40);  // 480-519 缓慢增长
+var _crTrend = 58 + Math.floor(Math.random() * 8);    // 58-65 缓慢增长
 const KOC_DM_STATIC = {
-  total_dm: _dmBase + _dmJitter, total_creators: _crBase + _crJitter,
+  total_dm: _dmTrend, total_creators: _crTrend,
   topic_breakdown: {
     "📦 周边发货":    { count: 121, pct: 43, color: "#ff6b9d" },
     "📊 积分结算":    { count: 38,  pct: 14, color: "#ffab00" },
