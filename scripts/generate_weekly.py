@@ -1,17 +1,15 @@
 #!/usr/bin/env python3
-"""Generate weekly community growth report."""
+"""Generate weekly community report from Discord data."""
 import subprocess, json, os, datetime, urllib.request
 
 TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "")
-FEISHU = os.environ.get("FEISHU_WEBHOOK", "https://open.feishu.cn/open-apis/bot/v2/hook/a770eb64-5613-4078-904d-ac649b47b145")
-SUPABASE_URL = "https://rryzofimrehmkijkckrm.supabase.co"
-SUPABASE_KEY = "sb_publishable_oyewqnQ8AnitAOD94Qg0nA_v6Zqkr7r"
+FEISHU = os.environ.get("FEISHU_WEBHOOK", "")
 
 CHANNELS = {
     "creators-exchange": "1458349180748828757",
+    "bulletin-board": "1458347958389965035",
     "show-pet": "1529062536404795443",
     "show-merch": "1529063019349545021",
-    "bulletin-board": "1458347958389965035",
 }
 
 def discord_fetch(channel_id, before=None):
@@ -20,122 +18,92 @@ def discord_fetch(channel_id, before=None):
     req = urllib.request.Request(url, headers={"Authorization": f"Bot {TOKEN}"})
     return json.loads(urllib.request.urlopen(req).read())
 
-def supabase_fetch(endpoint):
-    req = urllib.request.Request(
-        f"{SUPABASE_URL}/rest/v1/{endpoint}",
-        headers={"apikey": SUPABASE_KEY, "Content-Type": "application/json"}
-    )
-    return json.loads(urllib.request.urlopen(req).read())
-
-def count_week(channel_id):
-    count, speakers = 0, set()
-    cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=7)
+def count_recent_week(channel_id):
+    """Count messages in the past 7 days."""
+    count = 0
+    speakers = set()
+    week_ago = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=7)
     before = None
-    for _ in range(60):
-        try: msgs = discord_fetch(channel_id, before)
-        except: break
+    for _ in range(50):
+        try:
+            msgs = discord_fetch(channel_id, before)
+        except:
+            break
         if not msgs or not isinstance(msgs, list): break
         for m in msgs:
             ts = m.get("timestamp", "")
             if not ts: continue
             dt = datetime.datetime.fromisoformat(ts.replace("Z", "+00:00"))
-            if dt >= cutoff:
-                if not m.get("author", {}).get("bot"):
-                    count += 1; speakers.add(m.get("author", {}).get("id"))
-            else: return count, len(speakers)
+            if dt >= week_ago:
+                a = m.get("author", {})
+                if not a.get("bot"):
+                    count += 1
+                    speakers.add(a.get("id"))
+            else:
+                return count, len(speakers)
         before = msgs[-1]["id"]
     return count, len(speakers)
 
 def main():
-    if not TOKEN:
-        print("❌ DISCORD_BOT_TOKEN not set"); return
-
     now = datetime.datetime.now()
-    monday = now - datetime.timedelta(days=now.weekday())
-    last_monday = monday - datetime.timedelta(days=7)
-    week_label = f"{monday.strftime('%m/%d')}-{now.strftime('%m/%d')}"
-
-    print(f"📊 周报: {week_label}")
-
-    # Discord data
-    main_count, main_speakers = count_week(CHANNELS["creators-exchange"])
-    pet_count, _ = count_week(CHANNELS["show-pet"])
-    merch_count, _ = count_week(CHANNELS["show-merch"])
-    total_discord = main_count + pet_count + merch_count
-
-    # Supabase KOC data
-    try:
-        kocs = supabase_fetch("kocs?select=uid,tier,created_at&status=eq.active")
-        total_koc = len(kocs) if isinstance(kocs, list) else 0
-        new_this_week = 0
-        week_ago = (now - datetime.timedelta(days=7)).isoformat()
-        for k in (kocs if isinstance(kocs, list) else []):
-            if k.get("created_at", "") >= week_ago:
-                new_this_week += 1
-    except:
-        total_koc = "?"
-        new_this_week = "?"
-
-    # Build the Feishu card
-    g = lambda v: f"+{v}" if isinstance(v, (int, float)) and v > 0 else str(v)
-
-    payload = json.dumps({
-        "msg_type": "interactive",
-        "card": {
-            "header": {
-                "title": {"content": f"📊 Yoyo 创作者社群 · 周报 {week_label}", "tag": "plain_text"},
-                "template": "blue"
-            },
-            "elements": [
-                {"tag": "div", "text": {"content": f"**📈 本周增长数据**\n\n🆕 新增创作者：**{new_this_week}** 人\n👥 创作者总数：**{total_koc}** 人\n💬 本周消息总量：**{total_discord}** 条\n🎨 含作品/宠物/周边分享", "tag": "lark_md"}},
-                {"tag": "hr"},
-                {"tag": "div", "text": {"content": f"**📊 核心指标看板**\n\n· 主频道活跃：{main_count} 条消息 | {main_speakers} 人参与\n· 宠物频道：{pet_count} 条 | 周边频道：{merch_count} 条\n· 创作者池规模：{total_koc} 人（本周净增 {new_this_week}）", "tag": "lark_md"}},
-                {"tag": "hr"},
-                {"tag": "action", "actions": [
-                    {"tag": "button", "text": {"content": "📊 完整月报", "tag": "plain_text"}, "url": "https://jiashi65.github.io/yoyo-community-report/", "type": "primary"},
-                    {"tag": "button", "text": {"content": "👥 KOC 管理系统", "tag": "plain_text"}, "url": "https://jiashi65.github.io/yoyo-koc-exchange/admin.html", "type": "default"}
-                ]},
-                {"tag": "note", "elements": [{"tag": "plain_text", "content": "🤖 自动生成 · yoyo-community-report · 每周一推送"}]}
-            ]
-        }
-    }).encode()
-
-    try:
-        req = urllib.request.Request(FEISHU, data=payload, headers={"Content-Type": "application/json"})
-        urllib.request.urlopen(req)
-        print(f"✅ 飞书已推送: {total_discord}条, {total_koc}创作者")
-    except Exception as e:
-        print(f"⚠️ 飞书推送失败: {e}")
-
-    # Write minimal HTML
-    with open("index.html", "w") as f:
-        f.write(f"""<!DOCTYPE html>
-<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+    week_start = (now - datetime.timedelta(days=now.weekday())).strftime("%m/%d")
+    week_end = now.strftime("%m/%d")
+    
+    # Pull data
+    main_count, main_speakers = count_recent_week(CHANNELS["creators-exchange"])
+    
+    # Build report
+    report = f"""<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Yoyo Creative Studio · 社群周报</title>
 <style>
 *{{margin:0;padding:0;box-sizing:border-box}}
 body{{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,sans-serif;min-height:100vh}}
-.container{{max-width:800px;margin:0 auto;padding:20px}}
-h1{{font-size:28px;text-align:center;background:linear-gradient(135deg,#00d4ff,#7b2ff7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;padding:30px 0 10px}}
-.sub{{text-align:center;color:#5a6480;font-size:13px;margin-bottom:30px}}
-.metrics{{display:grid;grid-template-columns:1fr 1fr;gap:12px}}
-.m{{background:linear-gradient(135deg,rgba(20,30,60,.8),rgba(15,20,40,.8));border:1px solid rgba(0,212,255,.12);border-radius:12px;padding:16px}}
-.m .label{{color:#5a6480;font-size:11px;text-transform:uppercase;margin-bottom:4px}}
-.m .val{{font-size:28px;font-weight:700;color:#00d4ff}}
-.m .detail{{font-size:11px;color:#8892b0;margin-top:4px}}
-.footer{{text-align:center;color:#5a6480;font-size:11px;margin-top:40px}}
-</style></head><body><div class="container">
-<h1>Yoyo Creative Studio</h1>
-<div class="sub">{week_label} · {now.year}年{now.month}月{now.day}日 · 自动生成</div>
-<div class="metrics">
-<div class="m"><div class="label">🆕 本周新增创作者</div><div class="val">{new_this_week}</div><div class="detail">总创作者池: {total_koc} 人</div></div>
-<div class="m"><div class="label">💬 本周消息总量</div><div class="val">{total_discord}</div><div class="detail">{main_speakers} 人参与讨论</div></div>
-<div class="m"><div class="label">🐈 宠物频道</div><div class="val">{pet_count}</div><div class="detail">show-us-your-pet</div></div>
-<div class="m"><div class="label">🎁 周边频道</div><div class="val">{merch_count}</div><div class="detail">show-us-official-merch</div></div>
+.container{{max-width:1200px;margin:0 auto;padding:20px}}
+.header{{text-align:center;padding:40px 0 30px;border-bottom:1px solid rgba(0,255,255,.1);margin-bottom:30px}}
+.header h1{{font-size:34px;font-weight:700;background:linear-gradient(135deg,#00d4ff,#7b2ff7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}}
+.header .subtitle{{color:#8892b0;font-size:14px;margin-top:6px}}
+.kpi-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:28px}}
+.kpi-card{{background:linear-gradient(135deg,rgba(20,30,60,.8),rgba(15,20,40,.8));border:1px solid rgba(0,212,255,.12);border-radius:14px;padding:18px 20px}}
+.kpi-card .label{{color:#8892b0;font-size:11px;text-transform:uppercase;letter-spacing:1px}}
+.kpi-card .value{{font-size:30px;font-weight:700;margin:6px 0 3px;color:#00d4ff}}
+.kpi-card .change{{font-size:12px;color:#00e676}}
+.footer{{text-align:center;padding:20px;color:#5a6480;font-size:11px}}
+</style></head>
+<body><div class="container">
+<div class="header">
+  <h1>Yoyo Creative Studio</h1>
+  <div class="subtitle">{week_start}-{week_end} · {now.year}年{now.month}月{now.day}日 · 自动生成</div>
 </div>
-<div class="footer">🤖 GitHub Actions 自动生成 · {now.strftime('%Y-%m-%d %H:%M')} UTC</div>
-</div></body></html>""")
-    print("✅ HTML updated")
+<div class="kpi-grid">
+  <div class="kpi-card"><div class="label">📢 公开频道消息</div><div class="value">{main_count}</div><div class="change">本周消息总量</div></div>
+  <div class="kpi-card"><div class="label">👥 发言人数</div><div class="value">{main_speakers}</div><div class="change">本周活跃创作者</div></div>
+</div>
+<div class="footer"><p>🤖 由 GitHub Actions 自动生成 · {now.strftime('%Y年%m月%d日')}</p></div>
+</div></body></html>"""
+    
+    with open("index.html", "w") as f:
+        f.write(report)
+    
+    # Feishu push
+    if FEISHU:
+        payload = json.dumps({
+            "msg_type": "interactive",
+            "card": {
+                "header": {"title": {"content": f"📊 Yoyo Creative Studio 周报 · {week_start}-{week_end}", "tag": "plain_text"}},
+                "elements": [
+                    {"tag": "div", "text": {"content": f"📢 本周消息: {main_count} 条 | 👥 发言: {main_speakers} 人", "tag": "lark_md"}},
+                    {"tag": "action", "actions": [{"tag": "button", "text": {"content": "📊 查看完整报告", "tag": "plain_text"}, "url": "https://jiashi65.github.io/yoyo-community-report/", "type": "default"}]}
+                ]
+            }
+        }).encode()
+        try:
+            req = urllib.request.Request(FEISHU, data=payload, headers={"Content-Type": "application/json"})
+            urllib.request.urlopen(req)
+            print("✅ 已推送飞书")
+        except Exception as e:
+            print(f"⚠️ 飞书推送失败: {e}")
 
 if __name__ == "__main__":
     main()
