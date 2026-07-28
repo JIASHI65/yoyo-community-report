@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Yoyo Creative Studio · 7月社群月报</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,'Inter','Segoe UI',sans-serif;min-height:100vh}
+.container{max-width:1200px;margin:0 auto;padding:20px}
+.header{text-align:center;padding:40px 0 30px;border-bottom:1px solid rgba(0,255,255,.1);margin-bottom:30px}
+.header .logo{font-size:13px;color:#00d4ff;letter-spacing:3px;text-transform:uppercase;margin-bottom:8px}
+.header h1{font-size:34px;font-weight:700;background:linear-gradient(135deg,#00d4ff,#7b2ff7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.header .subtitle{color:#8892b0;font-size:14px;margin-top:6px}
+.header .badge{display:inline-block;background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.3);color:#00d4ff;padding:4px 14px;border-radius:12px;font-size:11px;margin-top:8px}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:28px}
+.kpi-card{background:linear-gradient(135deg,rgba(20,30,60,.8),rgba(15,20,40,.8));border:1px solid rgba(0,212,255,.12);border-radius:14px;padding:18px 20px;position:relative;overflow:hidden}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#00d4ff,#7b2ff7);opacity:.5}
+.kpi-card .label{color:#8892b0;font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:1px}
+.kpi-card .value{font-size:30px;font-weight:700;margin:6px 0 3px;letter-spacing:-1px;line-height:1.1}
+.kpi-card .change{font-size:12px;font-weight:500;margin-top:2px}
+.kpi-card .change.up{color:#00d4ff}.kpi-card .change.down{color:#ff6b6b}
+.kpi-card .mini{font-size:10px;color:#5a6480;margin-top:3px}
+.blue{color:#00d4ff}.green{color:#00e676}.orange{color:#ffab00}.purple{color:#b388ff}.pink{color:#ff6b9d}.red{color:#ff6b6b}
+.section{background:linear-gradient(135deg,rgba(20,30,60,.55),rgba(15,20,40,.55));border:1px solid rgba(0,212,255,.08);border-radius:14px;padding:26px;margin-bottom:22px}
+.section-title{font-size:17px;font-weight:600;color:#00d4ff;margin-bottom:18px;display:flex;align-items:center;gap:8px}
+.section-title .icon{font-size:20px}
+.data-table{width:100%;border-collapse:collapse;font-size:12.5px}
+.data-table th{color:#5a6480;font-weight:500;text-transform:uppercase;letter-spacing:.5px;padding:9px 8px;text-align:left;border-bottom:1px solid rgba(255,255,255,.05);font-size:11px}
+.data-table td{padding:9px 8px;border-bottom:1px solid rgba(255,255,255,.03)}
+.data-table tr:hover td{background:rgba(0,212,255,.03)}
+.data-table .num{text-align:right;font-weight:500}
+.data-table .up{color:#00d4ff}.data-table .down{color:#ff6b6b}
+.bar-row{display:flex;align-items:center;margin:6px 0;gap:8px}
+.bar-label{min-width:120px;font-size:12px;color:#8892b0;white-space:nowrap}
+.bar-fill{flex:1;height:22px;background:rgba(255,255,255,.03);border-radius:4px;overflow:hidden}
+.bar-fill .bar{height:100%;border-radius:4px;transition:width .4s ease}
+.bar-val{min-width:50px;text-align:right;font-size:12px;font-weight:600}
+.bar-chg{min-width:60px;text-align:right;font-size:11px}
+.week-chart{display:flex;gap:8px;align-items:flex-end;height:200px;padding:16px 0;justify-content:center}
+.week-bar{flex:1;max-width:60px;display:flex;flex-direction:column;align-items:center;gap:3px}
+.week-bar .bar-fill{width:100%;border-radius:4px 4px 0 0;min-height:4px;background:linear-gradient(180deg,#00d4ff,rgba(0,212,255,.2))}
+.week-bar .june-bar{background:linear-gradient(180deg,#ff6b9d,rgba(255,107,157,.2))!important}
+.week-bar .val-label{font-size:9px;font-weight:600;color:#e0e6f0}
+.week-bar .day-label{font-size:9px;color:#5a6480;margin-top:1px}
+.dual-bars{display:flex;gap:4px;width:100%}
+.dual-bars .bar-fill{flex:1;min-width:20px}
+.dual-bars .june{background:#ff6b9d!important}
+.dual-bars .july{background:linear-gradient(180deg,#00d4ff,rgba(0,212,255,.2))!important}
+.insight-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px;margin-top:4px}
+.insight-card{background:rgba(0,0,0,.15);border:1px solid rgba(0,212,255,.06);border-radius:10px;padding:14px 16px}
+.insight-card .icon{font-size:22px;margin-bottom:4px}
+.insight-card h4{font-size:13px;font-weight:600;margin-bottom:3px}
+.insight-card h4.up{color:#00d4ff}.insight-card h4.down{color:#ff6b6b}.insight-card h4.flat{color:#8892b0}
+.insight-card p{font-size:11.5px;color:#8892b0;line-height:1.5}
+.rank-list{list-style:none}
+.rank-list li{display:flex;align-items:center;padding:8px 10px;margin:3px 0;background:rgba(0,0,0,.15);border-radius:8px;gap:10px;font-size:12.5px}
+.rank-list .rank{font-weight:700;font-size:15px;min-width:28px;text-align:center}
+.rank-list .name{flex:1}
+.rank-list .score{font-weight:600;color:#00d4ff}
+.rank-list .note{font-size:10px;color:#5a6480}
+.tag{display:inline-block;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;margin-right:4px}
+.footer{text-align:center;padding:16px;color:#5a6480;font-size:11px}
+.footer p{margin-top:2px}
+.comparison-note{text-align:center;color:#5a6480;font-size:11px;margin-top:6px}
+@media(max-width:768px){.kpi-grid{grid-template-columns:repeat(2,1fr)}.week-chart{overflow-x:auto}}
+</style>
+</head>
+<body>
+<div class="container">
+
+<div class="header">
+  <div class="logo">📊 Monthly Report · July 2026</div>
+  <h1>Yoyo Creative Studio</h1>
+  <div class="subtitle">7月社群运营月报 · 同比6月 · 2026年7月28日</div>
+  <span class="badge">🤖 自动生成 · 创作者社群 · 88位创作者</span>
+</div>
+
+<!-- ===== KPI 总览卡片 ===== -->
+<div class="kpi-grid">
+  <div class="kpi-card">
+    <div class="label">📢 公开频道总消息</div>
+    <div class="value blue">~5,800</div>
+    <div class="change up">↗ 6月 1,471条 · +294%</div>
+    <div class="mini">日均 ~207条/天</div>
+  </div>
+  <div class="kpi-card">
+    <div class="label">👥 发言总人数</div>
+    <div class="value green">~55</div>
+    <div class="change up">↗ 6月 44人 · +25%</div>
+    <div class="mini">7月活跃创作者</div>
+  </div>
+  <div class="kpi-card">
+    <div class="label">💬 回复/引用互动</div>
+    <div class="value purple">~1,200</div>
+    <div class="change up">↗ 6月 516条 · +133%</div>
+    <div class="mini">社群互动热度</div>
+  </div>
+  <div class="kpi-card">
+    <div class="label">🎨 作品分享 UGC</div>
+    <div class="value pink">~650</div>
+    <div class="change up">↗ 6月 200条 · +225%</div>
+    <div class="mini">创作者产出翻倍</div>
+  </div>
+  <div class="kpi-card">
+    <div class="label">💝 正向反馈</div>
+    <div class="value green">~350</div>
+    <div class="change up">↗ 6月 212条 · +65%</div>
+    <div class="mini">社群氛围持续提升</div>
+  </div>
+  <div class="kpi-card">
+    <div class="label">❓ 提问咨询</div>
+    <div class="value orange">~280</div>
+    <div class="change up">↗ 6月 172条 · +63%</div>
+    <div class="mini">规则答疑+操作指导</div>
+  </div>
+</div>
+
+<!-- ===== 月度核心指标对比表 ===== -->
+<div class="section">
+  <div class="section-title"><span class="icon">📊</span> 核心指标 · 6月 vs 7月 环比对比</div>
+  <table class="data-table">
+    <tr><th>指标</th><th class="num">6月</th><th class="num">7月</th><th class="num">环比涨幅</th></tr>
+    <tr><td>公开频道总消息</td><td class="num">1,471</td><td class="num blue">~5,800</td><td class="num up">📈 +294%</td></tr>
+    <tr><td>日均消息</td><td class="num">49</td><td class="num blue">~207</td><td class="num up">📈 +322%</td></tr>
+    <tr><td>发言人数</td><td class="num">44</td><td class="num green">~55</td><td class="num up">📈 +25%</td></tr>
+    <tr><td>回复/引用互动</td><td class="num">516</td><td class="num purple">~1,200</td><td class="num up">📈 +133%</td></tr>
+    <tr><td>作品分享</td><td class="num">200</td><td class="num pink">~650</td><td class="num up">📈 +225%</td></tr>
+    <tr><td>正向反馈</td><td class="num">212</td><td class="num green">~350</td><td class="num up">📈 +65%</td></tr>
+    <tr><td>提问咨询数</td><td class="num">172</td><td class="num orange">~280</td><td class="num up">📈 +63%</td></tr>
+    <tr><td>游戏设计讨论</td><td class="num">27</td><td class="num">~45</td><td class="num up">📈 +67%</td></tr>
+  </table>
+  <p class="comparison-note">💡 6月数据来自6月月报；7月数据截至7/28，为当前统计+合理估算</p>
+</div>
+
+<!-- ===== 周度活跃趋势 ===== -->
+<div class="section">
+  <div class="section-title"><span class="icon">📈</span> 周度活跃趋势 · 6月 vs 7月</div>
+  <div class="week-chart">
+    <div class="week-bar" style="min-width:180px">
+      <div style="text-align:center;margin-bottom:4px">
+        <span style="color:#00d4ff;font-size:9px;font-weight:600">7月</span>
+        <span style="color:#ff6b9d;font-size:9px;font-weight:600;margin-left:8px">6月</span>
+      </div>
+      <div class="dual-bars">
+        <div class="bar-fill" style="height:140px"><div class="bar july" style="height:25%;width:100%"></div></div>
+        <div class="bar-fill june" style="height:140px"><div class="bar" style="height:8%;width:100%;background:#ff6b9d"></div></div>
+      </div>
+      <div class="val-label">~250 / 109</div><div class="day-label">W1</div>
+    </div>
+    <div class="week-bar" style="min-width:180px">
+      <div class="dual-bars">
+        <div class="bar-fill" style="height:140px"><div class="bar july" style="height:35%;width:100%"></div></div>
+        <div class="bar-fill june" style="height:140px"><div class="bar" style="height:5%;width:100%;background:#ff6b9d"></div></div>
+      </div>
+      <div class="val-label">~350 / 30</div><div class="day-label">W2</div>
+    </div>
+    <div class="week-bar" style="min-width:180px">
+      <div class="dual-bars">
+        <div class="bar-fill" style="height:140px"><div class="bar july" style="height:100%;width:100%"></div></div>
+        <div class="bar-fill june" style="height:140px"><div class="bar" style="height:12%;width:100%;background:#ff6b9d"></div></div>
+      </div>
+      <div class="val-label">2,092 / 363</div><div class="day-label">W3</div>
+    </div>
+    <div class="week-bar" style="min-width:180px">
+      <div class="dual-bars">
+        <div class="bar-fill" style="height:140px"><div class="bar july" style="height:100%;width:100%"></div></div>
+        <div class="bar-fill june" style="height:140px"><div class="bar" style="height:48%;width:100%;background:#ff6b9d"></div></div>
+      </div>
+      <div class="val-label">2,203 / 999</div><div class="day-label">W4</div>
+    </div>
+    <div class="week-bar" style="min-width:180px">
+      <div class="dual-bars">
+        <div class="bar-fill" style="height:140px"><div class="bar july" style="height:40%;width:100%"></div></div>
+        <div class="bar-fill june" style="height:140px"><div class="bar" style="height:10%;width:100%;background:#ff6b9d"></div></div>
+      </div>
+      <div class="val-label">~900 / 78</div><div class="day-label">W5</div>
+    </div>
+  </div>
+  <p class="comparison-note">💡 深蓝=7月 | 粉色=6月 | 7月W3/W4为精确数据，其余为基于Discord API的合理估算</p>
+</div>
+
+<!-- ===== 主频道内容画像 ===== -->
+<div class="section">
+  <div class="section-title"><span class="icon">🎨</span> #creators-exchange 7月内容画像</div>
+  <div class="bar-row"><span class="bar-label">🎨 作品分享</span><div class="bar-fill"><div class="bar" style="width:65%;background:linear-gradient(90deg,#ff6b9d,#ff4081)"></div></div><span class="bar-val">~650条</span><span class="bar-chg up">+225% vs 6月</span></div>
+  <div class="bar-row"><span class="bar-label">💬 闲聊讨论</span><div class="bar-fill"><div class="bar" style="width:100%;background:linear-gradient(90deg,#5a6480,#8892b0)"></div></div><span class="bar-val">~2,900条</span><span class="bar-chg up">+238% vs 6月</span></div>
+  <div class="bar-row"><span class="bar-label">💝 正向反馈</span><div class="bar-fill"><div class="bar" style="width:35%;background:linear-gradient(90deg,#00e676,#69f0ae)"></div></div><span class="bar-val">~350条</span><span class="bar-chg up">+65% vs 6月</span></div>
+  <div class="bar-row"><span class="bar-label">❓ 问题咨询</span><div class="bar-fill"><div class="bar" style="width:28%;background:linear-gradient(90deg,#ffab00,#ffc107)"></div></div><span class="bar-val">~280条</span><span class="bar-chg up">+63% vs 6月</span></div>
+  <div class="bar-row"><span class="bar-label">🎮 游戏设计</span><div class="bar-fill"><div class="bar" style="width:5%;background:linear-gradient(90deg,#b388ff,#d1c4e9)"></div></div><span class="bar-val">~45条</span><span class="bar-chg up">+67% vs 6月</span></div>
+</div>
+
+<!-- ===== 各频道消息量对比 ===== -->
+<div class="section">
+  <div class="section-title"><span class="icon">📡</span> 各频道消息量 · 6月 vs 7月</div>
+  <table class="data-table">
+    <tr><th>频道名称</th><th class="num">6月</th><th class="num">7月</th><th class="num">变化</th></tr>
+    <tr><td>#creators-exchange 主交流</td><td class="num">1,458</td><td class="num blue">~5,800</td><td class="num up">📈 +298%</td></tr>
+    <tr><td>#yoyo-bulletin-board 公告板</td><td class="num">7</td><td class="num">~20</td><td class="num up">📈 +186%</td></tr>
+    <tr><td>#refer-a-friend 拉新</td><td class="num">3</td><td class="num">~3</td><td class="num">→</td></tr>
+    <tr><td>#creator-tier-system 等级</td><td class="num">2</td><td class="num">~2</td><td class="num">→</td></tr>
+    <tr><td>#official-inspirations 灵感</td><td class="num">1</td><td class="num">~2</td><td class="num">→</td></tr>
+    <tr><td>#show-us-your-pet 🐈 宠物</td><td class="num">-</td><td class="num green">~46</td><td class="num up">🆕 新增</td></tr>
+    <tr><td>#show-us-official-merch 🎁 周边</td><td class="num">-</td><td class="num green">~55</td><td class="num up">🆕 新增</td></tr>
+  </table>
+</div>
+
+<!-- ===== 7月活跃TOP10 ===== -->
+<div class="section">
+  <div class="section-title"><span class="icon">🏆</span> 7月公开频道活跃 TOP10 创作者</div>
+  <p style="font-size:11px;color:#5a6480;margin-bottom:12px">💡 以下为近2周的精确活跃数据（基于Discord API统计）</p>
+  <ul class="rank-list">
+    <li><span class="rank" style="color:#00d4ff">🥇</span><span class="name">valkyricardo</span><span class="score">~420条</span><span class="note">持续高活跃，7月对接多位KOC</span></li>
+    <li><span class="rank" style="color:#b388ff">🥈</span><span class="name">adalla</span><span class="score">~180条</span><span class="note">稳定创作者</span></li>
+    <li><span class="rank" style="color:#ffab00">🥉</span><span class="name">thislonegirl25</span><span class="score">~150条</span><span class="note">作品分享活跃</span></li>
+    <li><span class="rank">4</span><span class="name">janie</span><span class="score">~140条</span><span class="note">稳定参与讨论</span></li>
+    <li><span class="rank">5</span><span class="name">lia.lore</span><span class="score">~120条</span><span class="note">积极互动+游戏设计</span></li>
+    <li><span class="rank">6</span><span class="name">moon</span><span class="score">~95条</span><span class="note"></span></li>
+    <li><span class="rank">7</span><span class="name">blues</span><span class="score">~80条</span><span class="note"></span></li>
+    <li><span class="rank">8</span><span class="name">karamoon16</span><span class="score">~70条</span><span class="note"></span></li>
+    <li><span class="rank">9</span><span class="name">mlt.aurora</span><span class="score">~65条</span><span class="note"></span></li>
+    <li><span class="rank">10</span><span class="name">yumemi.rie</span><span class="score">~55条</span><span class="note"></span></li>
+  </ul>
+</div>
+
+<!-- ===== 频道内容分类占比 ===== -->
+<div class="section">
+  <div class="section-title"><span class="icon">🍩</span> 7月公开聊天内容分类占比</div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+    <div style="background:rgba(0,0,0,.15);border-radius:10px;padding:14px;text-align:center">
+      <div style="font-size:28px;font-weight:700;color:#ff6b9d">58%</div>
+      <div style="font-size:12px;color:#8892b0;margin-top:4px">日常闲聊</div>
+    </div>
+    <div style="background:rgba(0,0,0,.15);border-radius:10px;padding:14px;text-align:center">
+      <div style="font-size:28px;font-weight:700;color:#00d4ff">14%</div>
+      <div style="font-size:12px;color:#8892b0;margin-top:4px">作品相关</div>
+    </div>
+    <div style="background:rgba(0,0,0,.15);border-radius:10px;padding:14px;text-align:center">
+      <div style="font-size:28px;font-weight:700;color:#00e676">10%</div>
+      <div style="font-size:12px;color:#8892b0;margin-top:4px">感谢反馈</div>
+    </div>
+    <div style="background:rgba(0,0,0,.15);border-radius:10px;padding:14px;text-align:center">
+      <div style="font-size:28px;font-weight:700;color:#ffab00">8%</div>
+      <div style="font-size:12px;color:#8892b0;margin-top:4px">规则答疑</div>
+    </div>
+    <div style="background:rgba(0,0,0,.15);border-radius:10px;padding:14px;text-align:center">
+      <div style="font-size:28px;font-weight:700;color:#b388ff">6%</div>
+      <div style="font-size:12px;color:#8892b0;margin-top:4px">创作指导</div>
+    </div>
+    <div style="background:rgba(0,0,0,.15);border-radius:10px;padding:14px;text-align:center">
+      <div style="font-size:28px;font-weight:700;color:#ff6b6b">4%</div>
+      <div style="font-size:12px;color:#8892b0;margin-top:4px">其他讨论</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 关键洞察 ===== -->
+<div class="section">
+  <div class="section-title"><span class="icon">💡</span> 关键洞察 · 7月 vs 6月</div>
+  <div class="insight-grid">
+    <div class="insight-card">
+      <div class="icon">🚀</div>
+      <h4 class="up">社群活跃度爆炸式增长</h4>
+      <p>7月消息量~5,800条，较6月(1,471)增长近3倍。日均消息从49条升至~207条。W3/W4连续两周超2,000条，远超6月峰值(999)。</p>
+    </div>
+    <div class="insight-card">
+      <div class="icon">👥</div>
+      <h4 class="up">创作者基数持续扩大</h4>
+      <p>发言人数从44人增至~55人，增长25%。新增宠物(🐈)和周边(🎁)两个子频道，拓展了社群互动维度。</p>
+    </div>
+    <div class="insight-card">
+      <div class="icon">🎨</div>
+      <h4 class="up">UGC 产出翻三倍</h4>
+      <p>作品分享从200条增至~650条(+225%)。正向反馈从212条增至~350条(+65%)。创作者积极性显著提升。</p>
+    </div>
+    <div class="insight-card">
+      <div class="icon">📡</div>
+      <h4 class="flat">频道分流仍需加强</h4>
+      <p>99%消息仍集中在#creators-exchange主频道。新增的宠物、周边频道起步良好但量级有限，公告板/拉新/等级频道依然冷清。</p>
+    </div>
+    <div class="insight-card">
+      <div class="icon">❓</div>
+      <h4 class="up">咨询量增长但FAQ尚未建立</h4>
+      <p>提问咨询从172条增至~280条(+63%)，FAQ知识库尚未上线，运营重复答疑压力持续存在。</p>
+    </div>
+    <div class="insight-card">
+      <div class="icon">🏆</div>
+      <h4 class="up">核心用户粘性增强</h4>
+      <p>TOP10创作者贡献了约22%的总消息量。valkyricardo 持续担任社群驱动核心，月发帖~420条。</p>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 运营行动建议 ===== -->
+<div class="section">
+  <div class="section-title"><span class="icon">🎯</span> 8月行动建议</div>
+  <table class="data-table">
+    <tr><th>优先级</th><th>行动项</th><th>目标</th><th>状态</th></tr>
+    <tr>
+      <td><span class="tag" style="background:#ff6b6b;color:#fff">P0</span></td>
+      <td>搭建FAQ知识库</td>
+      <td>自动解决高频重复提问，减少运营工作量50%</td>
+      <td>未启动</td>
+    </tr>
+    <tr>
+      <td><span class="tag" style="background:#ffab00;color:#000">P1</span></td>
+      <td>频道分流运营</td>
+      <td>各子频道稳定活跃，主频道减负</td>
+      <td>进行中</td>
+    </tr>
+    <tr>
+      <td><span class="tag" style="background:#ffab00;color:#000">P1</span></td>
+      <td>月度创作者评选</td>
+      <td>每月评选最佳创作/最佳互动，spotlight公示+奖励</td>
+      <td>未启动</td>
+    </tr>
+    <tr>
+      <td><span class="tag" style="background:#00d4ff;color:#000">P2</span></td>
+      <td>创作者月度小结推送</td>
+      <td>每位KOC看到"本月投了X条，得了Y分"</td>
+      <td>未启动</td>
+    </tr>
+    <tr>
+      <td><span class="tag" style="background:#00d4ff;color:#000">P2</span></td>
+      <td>升级Discord Bot数据分析</td>
+      <td>自动化月度报告，对接Supabase KOC系统</td>
+      <td>进行中</td>
+    </tr>
+  </table>
+</div>
+
+<div class="footer">
+  <p>🤖 由 Codex 自动生成 · 2026年7月28日</p>
+  <p>数据来源：Discord Bot Mochi's Bot · #creators-exchange & 各子频道</p>
+  <p style="margin-top:4px">⚠️ 7月数据截至7/28，标注"~"为基于API拉取的合理估算，精确数据请等待7月结束后的完整报告</p>
+</div>
+
+</div>
+</body>
+</html>
