@@ -4,6 +4,8 @@ import json, os, datetime, urllib.request, sys
 
 TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "")
 FEISHU = os.environ.get("FEISHU_WEBHOOK", "")
+SUPABASE_URL = "https://rryzofimrehmkijkckrm.supabase.co"
+SUPABASE_KEY = "sb_publishable_oyewqnQ8AnitAOD94Qg0nA_v6Zqkr7r"
 
 CHANNELS = {
     "creators-exchange": "1458349180748828757",
@@ -13,9 +15,17 @@ CHANNELS = {
 }
 
 def discord_fetch(channel_id, before=None):
-    url = f"https://discord.com/api/v10/channels/{channel_id}/messages?limit=100"
-    if before: url += f"&before={before}"
-    req = urllib.request.Request(url, headers={"Authorization": f"Bot {TOKEN}"})
+    """Fetch messages via Supabase discord-proxy to bypass IP restrictions."""
+    data = json.dumps({
+        "action": "list_messages",
+        "data": {"channel_id": channel_id, "limit": 100, "before": before} if before else {"channel_id": channel_id, "limit": 100},
+        "token": TOKEN
+    }).encode()
+    req = urllib.request.Request(
+        f"{SUPABASE_URL}/functions/v1/discord-proxy",
+        data=data,
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {SUPABASE_KEY}"}
+    )
     res = urllib.request.urlopen(req)
     return json.loads(res.read())
 
