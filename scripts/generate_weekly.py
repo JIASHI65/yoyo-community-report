@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Generate weekly community report from Discord data."""
-import subprocess, json, os, datetime, urllib.request
+import json, os, datetime, urllib.request, sys
 
 TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "")
 FEISHU = os.environ.get("FEISHU_WEBHOOK", "")
@@ -16,43 +16,62 @@ def discord_fetch(channel_id, before=None):
     url = f"https://discord.com/api/v10/channels/{channel_id}/messages?limit=100"
     if before: url += f"&before={before}"
     req = urllib.request.Request(url, headers={"Authorization": f"Bot {TOKEN}"})
-    return json.loads(urllib.request.urlopen(req).read())
+    res = urllib.request.urlopen(req)
+    return json.loads(res.read())
 
-def count_recent_week(channel_id):
-    """Count messages in the past 7 days."""
-    count = 0
-    speakers = set()
-    week_ago = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=7)
+def count_week(channel_id):
+    count, speakers = 0, set()
+    cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=7)
     before = None
-    for _ in range(50):
+    pages = 0
+    for _ in range(60):
         try:
             msgs = discord_fetch(channel_id, before)
-        except:
+        except Exception as e:
+            print(f"  [ERROR] discord_fetch failed on page {pages}: {e}", file=sys.stderr)
             break
-        if not msgs or not isinstance(msgs, list): break
+        if not msgs or not isinstance(msgs, list):
+            print(f"  [ERROR] non-list response on page {pages}", file=sys.stderr)
+            break
+        pages += 1
         for m in msgs:
             ts = m.get("timestamp", "")
             if not ts: continue
             dt = datetime.datetime.fromisoformat(ts.replace("Z", "+00:00"))
-            if dt >= week_ago:
-                a = m.get("author", {})
-                if not a.get("bot"):
-                    count += 1
-                    speakers.add(a.get("id"))
+            if dt >= cutoff:
+                if not m.get("author", {}).get("bot"):
+                    count += 1; speakers.add(m.get("author", {}).get("id"))
             else:
+                print(f"  [OK] {pages} pages, {count} msgs, {len(speakers)} speakers")
                 return count, len(speakers)
         before = msgs[-1]["id"]
+    print(f"  [WARN] exhausted pages, returning {count} msgs")
     return count, len(speakers)
 
 def main():
+    if not TOKEN:
+        print("❌ DISCORD_BOT_TOKEN not set")
+        return
+
     now = datetime.datetime.now()
-    week_start = (now - datetime.timedelta(days=now.weekday())).strftime("%m/%d")
-    week_end = now.strftime("%m/%d")
-    
+    monday = now - datetime.timedelta(days=now.weekday())
+    week_label = f"{monday.strftime('%m/%d')}-{now.strftime('%m/%d')}"
+    print(f"📊 周报: {week_label}")
+
     # Pull data
-    main_count, main_speakers = count_recent_week(CHANNELS["creators-exchange"])
+    main_count, main_speakers = count_week(CHANNELS["creators-exchange"])
+    pet_count, _ = count_week(CHANNELS["show-pet"])
+    merch_count, _ = count_week(CHANNELS["show-merch"])
+    bulletin_count, _ = count_week(CHANNELS["bulletin-board"])
     
-    # Build report
+    total = main_count + pet_count + merch_count + bulletin_count
+    print(f"  Total: {total} msgs | creators-exchange: {main_count} | pet: {pet_count} | merch: {merch_count} | bulletin: {bulletin_count}")
+
+    if total == 0 and main_count == 0:
+        print("❌ 所有频道数据为 0，不发飞书（可能在 GitHub Actions 中被 Discord 封了 IP）")
+        return
+
+    # HTML
     report = f"""<!DOCTYPE html>
 <html lang="zh-CN">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
@@ -74,33 +93,35 @@ body{{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,sans-serif;min-
 <body><div class="container">
 <div class="header">
   <h1>Yoyo Creative Studio</h1>
-  <div class="subtitle">{week_start}-{week_end} · {now.year}年{now.month}月{now.day}日 · 自动生成</div>
+  <div class="subtitle">{week_label} · {now.year}年{now.month}月{now.day}日 · 自动生成</div>
 </div>
 <div class="kpi-grid">
-  <div class="kpi-card"><div class="label">📢 公开频道消息</div><div class="value">{main_count}</div><div class="change">本周消息总量</div></div>
-  <div class="kpi-card"><div class="label">👥 发言人数</div><div class="value">{main_speakers}</div><div class="change">本周活跃创作者</div></div>
+  <div class="kpi-card"><div class="label">📢 公开频道消息</div><div class="value">{total}</div><div class="change">全频道本周消息总量</div></div>
+  <div class="kpi-card"><div class="label">💬 主频道</div><div class="value">{main_count}</div><div class="change">{main_speakers} 人参与</div></div>
+  <div class="kpi-card"><div class="label">🐈 宠物频道</div><div class="value">{pet_count}</div></div>
+  <div class="kpi-card"><div class="label">🎁 周边频道</div><div class="value">{merch_count}</div></div>
 </div>
 <div class="footer"><p>🤖 由 GitHub Actions 自动生成 · {now.strftime('%Y年%m月%d日')}</p></div>
 </div></body></html>"""
     
     with open("index.html", "w") as f:
         f.write(report)
-    
+    print("✅ HTML 已生成")
+
     # Feishu push
     if FEISHU:
         payload = json.dumps({
             "msg_type": "interactive",
             "card": {
-                "header": {"title": {"content": f"📊 Yoyo Creative Studio 周报 · {week_start}-{week_end}", "tag": "plain_text"}},
+                "header": {"title": {"content": f"📊 Yoyo 周报 · {week_label}", "tag": "plain_text"}},
                 "elements": [
-                    {"tag": "div", "text": {"content": f"📢 本周消息: {main_count} 条 | 👥 发言: {main_speakers} 人", "tag": "lark_md"}},
-                    {"tag": "action", "actions": [{"tag": "button", "text": {"content": "📊 查看完整报告", "tag": "plain_text"}, "url": "https://jiashi65.github.io/yoyo-community-report/", "type": "default"}]}
+                    {"tag": "div", "text": {"content": f"📢 全频道消息: **{total}** 条\n💬 主频道: **{main_count}** 条 ({main_speakers}人)\n🐈 宠物: {pet_count} | 🎁 周边: {merch_count}", "tag": "lark_md"}},
+                    {"tag": "action", "actions": [{"tag": "button", "text": {"content": "📊 查看周报", "tag": "plain_text"}, "url": "https://jiashi65.github.io/yoyo-community-report/", "type": "default"}]}
                 ]
             }
         }).encode()
         try:
-            req = urllib.request.Request(FEISHU, data=payload, headers={"Content-Type": "application/json"})
-            urllib.request.urlopen(req)
+            urllib.request.urlopen(urllib.request.Request(FEISHU, data=payload, headers={"Content-Type": "application/json"}))
             print("✅ 已推送飞书")
         except Exception as e:
             print(f"⚠️ 飞书推送失败: {e}")
