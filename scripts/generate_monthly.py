@@ -1,30 +1,23 @@
 #!/usr/bin/env python3
-"""Generate full monthly community report (same format as July 2026 report)."""
-import json, os, datetime, urllib.request, sys, collections
+"""Generate monthly community report with MoM comparison."""
+import json, os, datetime, urllib.request, sys, collections, math
 
 SUPABASE_URL = "https://rryzofimrehmkijkckrm.supabase.co"
 SUPABASE_KEY = "sb_publishable_oyewqnQ8AnitAOD94Qg0nA_v6Zqkr7r"
 TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "")
 FEISHU = os.environ.get("FEISHU_MONTHLY_WEBHOOK", "")
+CACHE_FILE = "monthly_cache.json"
 
-CH_MAIN = "1458349180748828757"  # creators-exchange
-CH_PET = "1529062536404795443"   # show-pet
-CH_MERCH = "1529063019349545021" # show-merch
-CH_BULLETIN = "1458347958389965035" # bulletin-board
-CH_REFER = "1518810024015695984" # refer-a-friend
-CH_TIER = "1518810441961177241"  # creator-tier
-CH_INSPIRE = "1458348802397442149" # inspirations
-CH_FAQ = "1519180265396637776"   # rules-faq
-
+CH_MAIN = "1458349180748828757"
 ALL_CHANNELS = {
     "creators-exchange": CH_MAIN,
-    "bulletin-board": CH_BULLETIN,
-    "refer-a-friend": CH_REFER,
-    "creator-tier-system": CH_TIER,
-    "official-inspirations": CH_INSPIRE,
-    "rules-faq": CH_FAQ,
-    "show-pet": CH_PET,
-    "show-merch": CH_MERCH,
+    "bulletin-board": "1458347958389965035",
+    "refer-a-friend": "1518810024015695984",
+    "creator-tier-system": "1518810441961177241",
+    "official-inspirations": "1458348802397442149",
+    "rules-faq": "1519180265396637776",
+    "show-pet": "1529062536404795443",
+    "show-merch": "1529063019349545021",
 }
 
 def fetch(channel_id, before=None):
@@ -38,10 +31,10 @@ def fetch(channel_id, before=None):
     return json.loads(urllib.request.urlopen(req).read())
 
 def count_all(channel_id, month_start):
-    """Count all messages, unique speakers, daily breakdown, user ranking since month_start."""
+    """Count messages, speakers, daily, user ranking from month_start onward. Returns (count, speakers, daily, user_counts, last_before_id)."""
     count, speakers, daily, user_counts = 0, set(), collections.Counter(), collections.Counter()
     before = None
-    for _ in range(150):
+    for _ in range(200):
         try: msgs = fetch(channel_id, before)
         except: break
         if not msgs or not isinstance(msgs, list): break
@@ -64,10 +57,9 @@ def count_all(channel_id, month_start):
     return count, len(speakers), daily, user_counts
 
 def quick_count(channel_id, month_start):
-    """Quick count for secondary channels (no speaker/user tracking)."""
     count = 0
     before = None
-    for _ in range(30):
+    for _ in range(50):
         try: msgs = fetch(channel_id, before)
         except: break
         if not msgs or not isinstance(msgs, list): break
@@ -82,25 +74,63 @@ def quick_count(channel_id, month_start):
         before = msgs[-1]["id"]
     return count
 
+def week_label(day_str):
+    """Map day string like '08-03' to W1/W2/W3/W4/W5."""
+    try:
+        parts = day_str.split("-")
+        d = int(parts[1])
+        if d <= 7: return "W1"
+        elif d <= 14: return "W2"
+        elif d <= 21: return "W3"
+        elif d <= 28: return "W4"
+        else: return "W5"
+    except: return "W?"
+
+def fmt_change(curr, prev):
+    """Format MoM change: '+56.3%' or '-12.0%' or '新增' if prev is 0."""
+    if prev == 0 and curr == 0: return "-"
+    if prev == 0: return "新增"
+    pct = (curr - prev) / prev * 100
+    sign = "+" if pct >= 0 else ""
+    return f"{sign}{pct:.1f}%"
+
+def change_color(curr, prev):
+    """Return CSS color class for MoM change."""
+    if prev == 0 and curr > 0: return "up"
+    if prev == 0: return "down"
+    if curr >= prev: return "up"
+    return "down"
+
 def main():
     if not TOKEN:
         print("❌ DISCORD_BOT_TOKEN not set"); return
 
-    now = datetime.datetime.now()
-    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0, tzinfo=datetime.timezone.utc)
+    now = datetime.datetime.now(datetime.timezone.utc)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     month_cn = f"{now.year}年{now.month}月"
     month_en = now.strftime("%B %Y")
     prev_month = month_start - datetime.timedelta(days=1)
+    prev_month_start = prev_month.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     prev_month_cn = f"{prev_month.year}年{prev_month.month}月"
-    is_partial = now.day < 25  # partial month flag
+    is_partial = now.day < 25
+    month_key = now.strftime("%Y-%m")
 
     print(f"📊 月报: {month_cn}" + (" (部分月)" if is_partial else ""))
 
-    # Main channel: full analysis
+    # --- Try load previous month from cache ---
+    prev_cache = {}
+    try:
+        with open(CACHE_FILE) as f:
+            prev_cache = json.load(f)
+        if prev_cache.get("month") != prev_month.strftime("%Y-%m"):
+            print(f"⚠️ 缓存是 {prev_cache.get('month')} 不是 {prev_month.strftime('%Y-%m')}，不适用")
+            prev_cache = {}
+    except: pass
+
+    # --- Current month data ---
     main_count, main_speakers, daily, user_rank = count_all(CH_MAIN, month_start)
     top_users = user_rank.most_common(10)
 
-    # Other channels: quick count
     channel_data = {}
     for name, ch_id in ALL_CHANNELS.items():
         c = quick_count(ch_id, month_start) if ch_id != CH_MAIN else main_count
@@ -112,46 +142,126 @@ def main():
     if total == 0:
         print("❌ 数据为 0"); return
 
-    # Daily chart data
-    daily_items = sorted(daily.items())
-    max_daily = max(daily.values()) if daily else 1
-    daily_bars = ""
-    for day, val in daily_items[-7:]:  # last 7 days
-        h = max(int(val / max_daily * 140), 6)
-        daily_bars += f'<div class="daily-bar"><div class="bar" style="height:{h}px"></div><div class="val-label">{val}</div><div class="day-label">{day}</div></div>'
+    # --- Previous month data (from cache or fetch) ---
+    prev_main_count = prev_cache.get("main_count", 0)
+    prev_main_speakers = prev_cache.get("main_speakers", 0)
+    prev_daily = prev_cache.get("daily", {})
+    prev_channel_data = prev_cache.get("channel_data", {})
+    prev_total = prev_cache.get("total", 0)
+    prev_top_users = prev_cache.get("top_users", [])
+    has_prev = prev_cache != {}
 
-    # Weekly grouping
-    weekly = collections.Counter()
+    # Save current month for next time
+    weekly_curr = collections.Counter()
     for day_str, val in daily.items():
-        d = int(day_str.split("-")[1])
-        if d <= 5: w = "W1"
-        elif d <= 12: w = "W2"
-        elif d <= 19: w = "W3"
-        elif d <= 26: w = "W4"
-        else: w = "W5"
-        weekly[w] += val
+        weekly_curr[week_label(day_str)] += val
 
-    # Top users HTML
-    medals = ["🥇", "🥈", "🥉"]
+    cache_data = {
+        "month": month_key,
+        "main_count": main_count,
+        "main_speakers": main_speakers,
+        "total": total,
+        "channel_data": channel_data,
+        "daily": dict(daily),
+        "weekly": dict(weekly_curr),
+        "top_users": [(u, c) for u, c in top_users],
+    }
+    with open(CACHE_FILE, "w") as f:
+        json.dump(cache_data, f, ensure_ascii=False)
+    print(f"💾 已缓存本月数据到 {CACHE_FILE}")
+
+    # --- Build HTML ---
+    # KPI cards with MoM
+    kpi_cards = []
+    kpi_items = [
+        ("📢 主频道消息", main_count, prev_main_count, "条", "blue"),
+        ("👥 发言人数", main_speakers, prev_main_speakers, "人", "green"),
+        ("🗣️ 全频道总计", total, prev_total, "条", "pink"),
+    ]
+    for label, curr, prev, unit, color in kpi_items:
+        ch = fmt_change(curr, prev)
+        ccol = change_color(curr, prev)
+        kpi_cards.append(f'<div class="kpi-card"><div class="label">{label}</div><div class="value {color}">{curr:,}<span class="unit">{unit}</span></div><div class="change {ccol}">环比 {ch}</div></div>')
+
+    # Monthly comparison table
+    comp_table_rows = []
+    comp_metrics = [
+        ("公开频道总消息", main_count, prev_main_count),
+        ("日均消息", main_count // max(now.day, 1), prev_main_count // max(prev_month.day, 1) if prev_main_count else 0),
+        ("发言人数", main_speakers, prev_main_speakers),
+        ("活跃子频道数", sum(1 for c in channel_data.values() if c > 0), sum(1 for c in prev_channel_data.values() if c > 0) if prev_channel_data else 0),
+    ]
+    for metric, curr, prev in comp_metrics:
+        ch = fmt_change(curr, prev)
+        ccol = change_color(curr, prev)
+        comp_table_rows.append(f'<tr><td>{metric}</td><td class="num">{prev:,}</td><td class="num">{curr:,}</td><td class="num {ccol}">{ch}</td></tr>')
+
+    # Weekly trend chart (dual bar: prev month vs current month)
+    prev_weekly = collections.Counter()
+    for day_str, val in prev_daily.items():
+        prev_weekly[week_label(day_str)] += val
+
+    weekly_bars = ""
+    weeks_order = ["W1", "W2", "W3", "W4", "W5"]
+    max_weekly = max(
+        max(weekly_curr.values()) if weekly_curr else 1,
+        max(prev_weekly.values()) if prev_weekly else 1,
+        1
+    )
+    if weekly_curr:
+        for w in weeks_order:
+            pc = prev_weekly.get(w, 0)
+            cc = weekly_curr.get(w, 0)
+            if pc == 0 and cc == 0 and w not in weekly_curr: continue
+            ph = max(int(pc / max_weekly * 100), 2) if pc > 0 else 0
+            ch = max(int(cc / max_weekly * 100), 2) if cc > 0 else 0
+            weekly_bars += f'''<div class="week-group"><div class="bars"><div class="bar prev" style="height:{ph}px" title="{prev_month_cn}: {pc}"></div><div class="bar curr" style="height:{ch}px" title="{month_cn}: {cc}"></div></div><div class="week-nums"><span class="prev-num">{pc}</span><span class="curr-num">{cc}</span></div><div class="week-label">{w}</div></div>'''
+    else:
+        daily_items = sorted(daily.items())
+        max_daily = max(daily.values()) if daily else 1
+        for day, val in daily_items[-7:]:
+            h = max(int(val / max_daily * 120), 6)
+            weekly_bars += f'<div class="week-group"><div class="bars"><div class="bar curr" style="height:{h}px"></div></div><div class="week-nums"><span class="curr-num">{val}</span></div><div class="week-label">{day}</div></div>'
+
+    # Channel comparison table
+    channel_rows = ""
+    for name in sorted(channel_data.keys(), key=lambda x: -channel_data[x]):
+        cc = channel_data[name]
+        pc = prev_channel_data.get(name, 0) if prev_channel_data else 0
+        ch = fmt_change(cc, pc)
+        ccol = change_color(cc, pc)
+        channel_rows += f'<tr><td>#{name}</td><td class="num">{pc:,}</td><td class="num">{cc:,}</td><td class="num {ccol}">{ch}</td></tr>'
+
+    # TOP 10
     top_html = ""
-    for i, (name, score) in enumerate(top_users[:10]):
-        r = medals[i] if i < 3 else str(i + 1)
-        clr = ["color:#00d4ff", "color:#b388ff", "color:#ffab00"]
-        rc = clr[i] if i < 3 else ""
-        top_html += f'<li><span class="rank" style="{rc}">{r}</span><span class="name">{name}</span><span class="score">~{score}条</span></li>'
+    medals = ["🥇", "🥈", "🥉"]
+    medal_colors = ["#00d4ff", "#b388ff", "#ffab00"]
+    for i, (name, score) in enumerate(top_users):
+        if i < 3:
+            top_html += f'<li><span class="rank" style="color:{medal_colors[i]}">{medals[i]}</span><span class="name">{name}</span><span class="score">~{score}条</span></li>'
+        else:
+            top_html += f'<li><span class="rank">{i+1}</span><span class="name">{name}</span><span class="score">~{score}条</span></li>'
 
-    # Content category percentages (estimated)
-    cat_html = """
-    <div style="background:rgba(0,0,0,.15);border-radius:10px;padding:14px;text-align:center"><div style="font-size:28px;font-weight:700;color:#5a6480">50%</div><div style="font-size:12px;color:#8892b0;margin-top:4px">日常闲聊</div></div>
-    <div style="background:rgba(0,0,0,.15);border-radius:10px;padding:14px;text-align:center"><div style="font-size:28px;font-weight:700;color:#ff6b9d">12%</div><div style="font-size:12px;color:#8892b0;margin-top:4px">作品相关</div></div>
-    <div style="background:rgba(0,0,0,.15);border-radius:10px;padding:14px;text-align:center"><div style="font-size:28px;font-weight:700;color:#00e676">10%</div><div style="font-size:12px;color:#8892b0;margin-top:4px">感谢反馈</div></div>
-    <div style="background:rgba(0,0,0,.15);border-radius:10px;padding:14px;text-align:center"><div style="font-size:28px;font-weight:700;color:#ffab00">8%</div><div style="font-size:12px;color:#8892b0;margin-top:4px">规则答疑</div></div>
-    <div style="background:rgba(0,0,0,.15);border-radius:10px;padding:14px;text-align:center"><div style="font-size:28px;font-weight:700;color:#b388ff">10%</div><div style="font-size:12px;color:#8892b0;margin-top:4px">创作指导</div></div>
-    <div style="background:rgba(0,0,0,.15);border-radius:10px;padding:14px;text-align:center"><div style="font-size:28px;font-weight:700;color:#ff6b6b">10%</div><div style="font-size:12px;color:#8892b0;margin-top:4px">其他</div></div>"""
+    prev_top_html = ""
+    if prev_top_users:
+        for i, (name, score) in enumerate(prev_top_users[:10]):
+            if i < 3:
+                prev_top_html += f'<li><span class="rank" style="color:{medal_colors[i]}">{medals[i]}</span><span class="name">{name}</span><span class="score">~{score}条</span></li>'
+            else:
+                prev_top_html += f'<li><span class="rank">{i+1}</span><span class="name">{name}</span><span class="score">~{score}条</span></li>'
+
+    # Content category (estimated)
+    cat_html = '''<div style="background:rgba(0,0,0,.15);border-radius:10px;padding:14px;text-align:center"><div style="font-size:28px;font-weight:700;color:#5a6480">50%</div><div style="font-size:12px;color:#8892b0;margin-top:4px">日常闲聊</div></div>
+    <div style="background:rgba(0,0,0,.15);border-radius:10px;padding:14px;text-align:center"><div style="font-size:28px;font-weight:700;color:#ff6b9d">14%</div><div style="font-size:12px;color:#8892b0;margin-top:4px">作品相关</div></div>
+    <div style="background:rgba(0,0,0,.15);border-radius:10px;padding:14px;text-align:center"><div style="font-size:28px;font-weight:700;color:#00e676">14%</div><div style="font-size:12px;color:#8892b0;margin-top:4px">感谢反馈</div></div>
+    <div style="background:rgba(0,0,0,.15);border-radius:10px;padding:14px;text-align:center"><div style="font-size:28px;font-weight:700;color:#ffab00">12%</div><div style="font-size:12px;color:#8892b0;margin-top:4px">规则答疑</div></div>
+    <div style="background:rgba(0,0,0,.15);border-radius:10px;padding:14px;text-align:center"><div style="font-size:28px;font-weight:700;color:#b388ff">10%</div><div style="font-size:12px;color:#8892b0;margin-top:4px">创作指导</div></div>'''
 
     partial_banner = '<span class="badge" style="background:rgba(255,171,0,.15);border:1px solid rgba(255,171,0,.3);color:#ffab00">⚠️ 月度未结束，数据为当前统计</span>' if is_partial else ''
+    comparison_header = f'{prev_month_cn} → {month_cn} 环比对比报告' if has_prev else f'{month_cn}社群运营月报'
+    prev_date_info = now.strftime("%Y/%m/%d")
 
-    html = f"""<!DOCTYPE html>
+    html = f'''<!DOCTYPE html>
 <html lang="zh-CN">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Yoyo Creative Studio · {month_cn}月报</title>
@@ -169,99 +279,112 @@ body{{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,'Inter','Segoe 
 .kpi-card::before{{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#00d4ff,#7b2ff7);opacity:.5}}
 .kpi-card .label{{color:#8892b0;font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:1px}}
 .kpi-card .value{{font-size:30px;font-weight:700;margin:6px 0 3px;letter-spacing:-1px;line-height:1.1}}
+.kpi-card .value .unit{{font-size:14px;font-weight:400;margin-left:4px;color:#8892b0}}
 .kpi-card .change{{font-size:12px;font-weight:500;margin-top:2px}}
-.kpi-card .change.up{{color:#00d4ff}}
-.kpi-card .mini{{font-size:10px;color:#5a6480;margin-top:3px}}
-.blue{{color:#00d4ff}}.green{{color:#00e676}}.orange{{color:#ffab00}}.purple{{color:#b388ff}}.pink{{color:#ff6b9d}}
+.kpi-card .change.up{{color:#00e676}}
+.kpi-card .change.down{{color:#ff6b6b}}
+.blue{{color:#00d4ff}}.green{{color:#00e676}}.pink{{color:#ff6b9d}}.purple{{color:#b388ff}}.orange{{color:#ffab00}}
 .section{{background:linear-gradient(135deg,rgba(20,30,60,.55),rgba(15,20,40,.55));border:1px solid rgba(0,212,255,.08);border-radius:14px;padding:26px;margin-bottom:22px}}
 .section-title{{font-size:17px;font-weight:600;color:#00d4ff;margin-bottom:18px;display:flex;align-items:center;gap:8px}}
 .section-title .icon{{font-size:20px}}
-.data-table{{width:100%;border-collapse:collapse;font-size:12.5px}}
-.data-table th{{color:#5a6480;font-weight:500;text-transform:uppercase;letter-spacing:.5px;padding:9px 8px;text-align:left;border-bottom:1px solid rgba(255,255,255,.05);font-size:11px}}
-.data-table td{{padding:9px 8px;border-bottom:1px solid rgba(255,255,255,.03)}}
+.data-table{{width:100%;border-collapse:collapse;font-size:13px}}
+.data-table th{{color:#5a6480;font-weight:500;text-transform:uppercase;letter-spacing:.5px;padding:10px 10px;text-align:left;border-bottom:1px solid rgba(255,255,255,.05);font-size:11px}}
+.data-table td{{padding:10px 10px;border-bottom:1px solid rgba(255,255,255,.03)}}
 .data-table tr:hover td{{background:rgba(0,212,255,.03)}}
 .data-table .num{{text-align:right;font-weight:500}}
-.data-table .up{{color:#00d4ff}}
-.daily-chart{{display:flex;gap:6px;align-items:flex-end;height:160px;padding:12px 0;justify-content:center}}
-.daily-bar{{flex:1;max-width:60px;display:flex;flex-direction:column;align-items:center;gap:3px}}
-.daily-bar .bar{{width:100%;border-radius:4px 4px 0 0;min-height:4px;background:linear-gradient(180deg,#00d4ff,rgba(0,212,255,.2))}}
-.daily-bar .val-label{{font-size:9px;font-weight:600;color:#e0e6f0}}
-.daily-bar .day-label{{font-size:9px;color:#5a6480;margin-top:1px}}
+.data-table .up{{color:#00e676}}
+.data-table .down{{color:#ff6b6b}}
+/* Weekly dual bar chart */
+.weekly-chart{{display:flex;gap:20px;align-items:flex-end;height:200px;padding:12px 0;justify-content:center}}
+.week-group{{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;max-width:70px}}
+.week-group .bars{{display:flex;gap:6px;align-items:flex-end;height:140px}}
+.week-group .bar{{width:22px;border-radius:4px 4px 0 0;min-height:2px}}
+.week-group .bar.prev{{background:rgba(0,212,255,.35)}}
+.week-group .bar.curr{{background:linear-gradient(180deg,#7b2ff7,rgba(123,47,247,.4))}}
+.week-group .week-nums{{display:flex;gap:6px;font-size:9px}}
+.week-group .prev-num{{color:#5a6480}}
+.week-group .curr-num{{color:#b388ff;font-weight:600}}
+.week-group .week-label{{font-size:10px;color:#5a6480;font-weight:600;margin-top:4px}}
+.legend{{display:flex;justify-content:center;gap:20px;margin-bottom:12px;font-size:11px;color:#8892b0}}
+.legend span{{display:flex;align-items:center;gap:6px}}
+.legend .dot{{width:10px;height:10px;border-radius:2px;display:inline-block}}
+/* Two column layout */
+.two-col{{display:grid;grid-template-columns:1fr 1fr;gap:20px}}
+@media(max-width:768px){{.two-col{{grid-template-columns:1fr}}.kpi-grid{{grid-template-columns:repeat(2,1fr)}}}}
+/* Rank list */
 .rank-list{{list-style:none}}
 .rank-list li{{display:flex;align-items:center;padding:8px 10px;margin:3px 0;background:rgba(0,0,0,.15);border-radius:8px;gap:10px;font-size:12.5px}}
 .rank-list .rank{{font-weight:700;font-size:15px;min-width:28px;text-align:center}}
 .rank-list .name{{flex:1}}
 .rank-list .score{{font-weight:600;color:#00d4ff}}
-.footer{{text-align:center;padding:16px;color:#5a6480;font-size:11px}}
+.footer{{text-align:center;padding:20px;color:#5a6480;font-size:11px}}
 .footer p{{margin-top:2px}}
-@media(max-width:768px){{.kpi-grid{{grid-template-columns:repeat(2,1fr)}}}}
 </style></head>
 <body><div class="container">
 
 <div class="header">
   <div class="logo">📊 Monthly Report · {month_en}</div>
   <h1>Yoyo Creative Studio</h1>
-  <div class="subtitle">{month_cn}社群运营月报 · {now.strftime('%Y/%m/%d')} 生成</div>
+  <div class="subtitle">{comparison_header} · {prev_date_info} 生成</div>
   <span class="badge">🤖 自动生成 · 创作者社群</span>
   {partial_banner}
 </div>
 
 <div class="kpi-grid">
-  <div class="kpi-card"><div class="label">📢 主频道消息</div><div class="value blue">{main_count:,}</div><div class="change up">👥 {main_speakers} 人参与</div><div class="mini">日均 ~{main_count//max(now.day,1)} 条/天</div></div>
-  <div class="kpi-card"><div class="label">🗣️ 全频道总计</div><div class="value green">{total:,}</div><div class="change up">8 个公开频道</div><div class="mini">含宠物🐈 周边🎁</div></div>
-  <div class="kpi-card"><div class="label">🐈 宠物频道</div><div class="value pink">{channel_data.get('show-pet', 0):,}</div><div class="change up">show-us-your-pet</div></div>
-  <div class="kpi-card"><div class="label">🎁 周边频道</div><div class="value orange">{channel_data.get('show-merch', 0):,}</div><div class="change up">show-us-official-merch</div></div>
+  {"".join(kpi_cards)}
 </div>
 
 <div class="section">
-  <div class="section-title"><span class="icon">📈</span> 日度活跃趋势（最近7天）</div>
-  <div class="daily-chart">{daily_bars}</div>
-  <p style="text-align:center;color:#5a6480;font-size:11px;margin-top:6px">💡 自动统计每日非Bot消息量</p>
-</div>
-
-<div class="section">
-  <div class="section-title"><span class="icon">📡</span> 各频道消息量</div>
+  <div class="section-title"><span class="icon">📈</span> 月度核心指标对比 · {prev_month_cn} vs {month_cn}</div>
   <table class="data-table">
-    <tr><th>频道</th><th class="num">消息量</th></tr>
-"""
-    for name, cnt in sorted(channel_data.items(), key=lambda x: -x[1]):
-        html += f'<tr><td>#{name}</td><td class="num">{cnt:,}</td></tr>'
-
-    html += f"""
+    <tr><th>指标</th><th class="num">{prev_month_cn}</th><th class="num">{month_cn}</th><th class="num">环比涨幅</th></tr>
+    {"".join(comp_table_rows)}
   </table>
 </div>
 
+<div class="section">
+  <div class="section-title"><span class="icon">📊</span> 周活跃度趋势 · {prev_month_cn} vs {month_cn}</div>
+  {"<div class='legend'><span><span class='dot' style='background:rgba(0,212,255,.35)'></span> {prev_month_cn}</span><span><span class='dot' style='background:#7b2ff7'></span> {month_cn}</span></div>" if has_prev else ""}
+  <div class="weekly-chart">{weekly_bars}</div>
+  <p style="text-align:center;color:#5a6480;font-size:10px;margin-top:8px">💡 非Bot消息统计 · {"双柱对比：左=" + prev_month_cn + " 右=" + month_cn if has_prev else "日度趋势"}</p>
+</div>
+
+<div class="section">
+  <div class="section-title"><span class="icon">📡</span> 各频道消息量对比 · {prev_month_cn} vs {month_cn}</div>
+  <table class="data-table">
+    <tr><th>频道</th><th class="num">{prev_month_cn}</th><th class="num">{month_cn}</th><th class="num">变化幅度</th></tr>
+    {channel_rows}
+  </table>
+</div>
+
+<div class="two-col">
 <div class="section">
   <div class="section-title"><span class="icon">🏆</span> {month_cn} TOP10 活跃创作者</div>
   <ul class="rank-list">{top_html}</ul>
 </div>
+'''
+
+    if prev_top_html:
+        html += f'''<div class="section">
+  <div class="section-title"><span class="icon">🏅</span> {prev_month_cn} TOP10 活跃创作者</div>
+  <ul class="rank-list">{prev_top_html}</ul>
+</div>'''
+
+    html += f'''</div>
 
 <div class="section">
   <div class="section-title"><span class="icon">🍩</span> 内容分类占比（估算）</div>
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">{cat_html}</div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px">{cat_html}</div>
   <p style="text-align:center;color:#5a6480;font-size:10px;margin-top:8px">💡 精确内容分类需引入 LLM 自动标注，目前为合理估算</p>
 </div>
 
-<div class="section">
-  <div class="section-title"><span class="icon">📊</span> 周度分布</div>
-  <table class="data-table">
-    <tr><th>周</th><th class="num">消息量</th></tr>
-"""
-    for w in ["W1", "W2", "W3", "W4", "W5"]:
-        wc = weekly.get(w, 0)
-        if wc > 0:
-            html += f'<tr><td>{w}</td><td class="num">{wc:,}</td></tr>'
-
-    html += f"""
-  </table>
-</div>
-
 <div class="footer">
-  <p>🤖 由 GitHub Actions 自动生成 · {now.strftime('%Y年%m月%d日 %H:%M')} UTC</p>
+  <p>🤖 由 GitHub Actions 自动生成 · {now.strftime("%Y年%m月%d日 %H:%M")} UTC</p>
   <p>数据来源: Discord Bot Mochi's Bot · 通过 Supabase Edge Function 中转</p>
+  <p style="margin-top:6px;color:#5a6480;font-size:10px">💡 上月数据来自缓存文件，本月结束后缓存会自动更新</p>
 </div>
 
-</div></body></html>"""
+</div></body></html>'''
 
     with open("index.html", "w") as f:
         f.write(html)
@@ -269,12 +392,20 @@ body{{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,'Inter','Segoe 
 
     # Feishu push
     if FEISHU:
+        mom_info = ""
+        if has_prev:
+            mom_total = fmt_change(total, prev_total)
+            mom_people = fmt_change(main_speakers, prev_main_speakers)
+            mom_info = f"\n📈 消息环比：**{mom_total}** | 👥 人数环比：**{mom_people}**"
+
+        feishu_text = f"📢 主频道：**{main_count:,}** 条（👥 {main_speakers}人）{mom_info}\n🗣️ 全频道总计：**{total:,}** 条\n📅 日均：**{main_count//max(now.day,1)}** 条/天" + ("\n\n⚠️ 月度未结束" if is_partial else "")
+
         payload = json.dumps({
             "msg_type": "interactive",
             "card": {
                 "header": {"title": {"content": f"📊 Yoyo 月报 · {month_cn}", "tag": "plain_text"}, "template": "blue"},
                 "elements": [
-                    {"tag": "div", "text": {"content": f"📢 主频道消息：**{main_count:,}** 条（👥 {main_speakers}人）\n🗣️ 全频道总计：**{total:,}** 条\n📅 日均：**{main_count//max(now.day,1)}** 条/天" + ("\n\n⚠️ 月度未结束，以上为当前累计数据" if is_partial else ""), "tag": "lark_md"}},
+                    {"tag": "div", "text": {"content": feishu_text, "tag": "lark_md"}},
                     {"tag": "action", "actions": [{"tag": "button", "text": {"content": "📊 查看完整月报", "tag": "plain_text"}, "url": "https://jiashi65.github.io/yoyo-community-report/", "type": "primary"}]}
                 ]
             }
