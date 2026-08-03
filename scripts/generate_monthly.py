@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Generate monthly community report with MoM comparison."""
 import json, os, datetime, urllib.request, sys, collections, math
+ARK_KEY = os.environ.get("ARK_API_KEY", "")
 
 SUPABASE_URL = "https://rryzofimrehmkijkckrm.supabase.co"
 SUPABASE_KEY = "sb_publishable_oyewqnQ8AnitAOD94Qg0nA_v6Zqkr7r"
@@ -101,6 +102,65 @@ def change_color(curr, prev):
     if curr >= prev: return "up"
     return "down"
 
+def fetch_samples(channel_id, month_start, max_samples=60):
+    """Fetch message samples for ARK analysis. Returns list of strings."""
+    samples = []
+    before = None
+    for _ in range(50):
+        try: msgs = fetch(channel_id, before)
+        except: break
+        if not msgs or not isinstance(msgs, list): break
+        for m in msgs:
+            ts = m.get("timestamp", "")
+            if not ts: continue
+            dt = datetime.datetime.fromisoformat(ts.replace("Z", "+00:00"))
+            if dt >= month_start:
+                author = m.get("author", {})
+                if not author.get("bot"):
+                    ct = m.get("content", "")[:250].strip()
+                    if ct and len(ct) > 3:
+                        uname = author.get("username", "?")
+                        samples.append(f"[{uname}]: {ct}")
+                        if len(samples) >= max_samples: return samples
+            else: return samples
+        before = msgs[-1]["id"]
+    return samples
+
+def arkanalyze_yoyo(messages):
+    if not messages: return {"hot_discussions":[],"user_sentiment":"","pain_points":[],"highlights":[],"notable_quotes":[],"emerging_topics":"","keyword_cloud":[],"monthly_summary":"","mochi_mentions":"","mochi_feedback":""}
+    text="\n".join(f"{i+1}. {m}" for i,m in enumerate(messages[:80]))
+    prompt=f"""你是游戏创作者社群（Yoyo Creative Studio）的运营分析师。仔细阅读以下本月 Discord 聊天记录。
+
+社群背景：这是一个游戏 UGC 创作者社群，Mochi（摸鱼小助手）是社群的运营助理 bot，负责积分统计、投稿管理、新人欢迎等。
+
+请特别关注：
+1. 创作者们在聊什么、投稿什么、有什么困难
+2. 对积分规则、投稿流程、奖励兑换的讨论
+3. **重点：查找所有提到 Mochi、Mochi小助手、摸鱼、助理、bot、assistant 的讨论**，分析创作者对 Mochi 的评价、吐槽、建议
+4. 新人 onboarding 体验、老创作者流失迹象
+
+返回纯JSON（不要markdown代码块，不要省略）：
+{{"hot_discussions":[{{"theme":"15字主题","detail":"100字以上：聊什么、不同观点、谁主导","buzz":"🔥高/📊中/💬一般"}}],"user_sentiment":"50字：正/负面占比%、趋势","pain_points":["每条50字：具体抱怨、影响"],"highlights":["每条30字：有趣事件"],"notable_quotes":["至少6条英文原文"],"emerging_topics":"新趋势","keyword_cloud":["10个高频词"],"monthly_summary":"80字：本月总结+运营建议","mochi_mentions":"分析：创作者对Mochi助手的评价、吐槽、建议（如没有提到则写'本月暂无Mochi相关讨论'）","mochi_feedback":"如有人提出Mochi功能建议/吐槽，摘录原话，否则写'无'}}
+
+要求：每条具体有信息量，不泛泛而谈。中文分析，quotes 保留英文原文。
+
+聊天记录：
+{text}"""
+    data=json.dumps({"model":"deepseek-v4-flash-260425","input":[{"role":"user","content":[{"type":"input_text","text":prompt}]}]}).encode()
+    req=urllib.request.Request("https://ark.cn-beijing.volces.com/api/v3/responses",data=data,
+        headers={"Content-Type":"application/json","Authorization":f"Bearer {ARK_KEY}"})
+    resp=json.loads(urllib.request.urlopen(req,timeout=120).read())
+    for item in resp.get("output",[]):
+        if item.get("type")=="message":
+            for c in item.get("content",[]):
+                if c.get("type")=="output_text":
+                    try:
+                        raw=c.get("text","").strip()
+                        for fence in ["```json","```"]: raw=raw.replace(fence,"")
+                        return json.loads(raw)
+                    except: return {"hot_discussions":[],"user_sentiment":c.get("text","")[:200],"pain_points":[],"highlights":[],"notable_quotes":[],"emerging_topics":"","keyword_cloud":[],"monthly_summary":"","mochi_mentions":"","mochi_feedback":""}
+    return {"hot_discussions":[],"user_sentiment":"分析失败","pain_points":[],"highlights":[],"notable_quotes":[],"emerging_topics":"","keyword_cloud":[],"monthly_summary":"","mochi_mentions":"","mochi_feedback":""}
+
 def main():
     if not TOKEN:
         print("❌ DISCORD_BOT_TOKEN not set"); return
@@ -150,6 +210,30 @@ def main():
     prev_total = prev_cache.get("total", 0)
     prev_top_users = prev_cache.get("top_users", [])
     has_prev = prev_cache != {}
+
+    # Collect samples for ARK analysis
+    print("📝 采集消息样本...")
+    all_samples = fetch_samples(CH_MAIN, month_start, 60)
+    # Also grab a few from active sub-channels
+    for name, ch_id in ALL_CHANNELS.items():
+        if ch_id == CH_MAIN: continue
+        if channel_data.get(name, 0) > 10:
+            more = fetch_samples(ch_id, month_start, 10)
+            all_samples.extend(more)
+    print(f"  ✅ 共采集 {len(all_samples)} 条样本")
+
+    # ARK Analysis
+    if ARK_KEY and all_samples:
+        print("🤖 ARK 话题分析...")
+        analysis = arkanalyze_yoyo(all_samples)
+        topics_list = [d.get('theme','') for d in analysis.get('hot_discussions',[])]
+        print(f"  🔥 话题: {', '.join(topics_list[:5])}")
+        print(f"  💬 情绪: {analysis.get('user_sentiment','?')[:80]}")
+        print(f"  🤖 Mochi讨论: {analysis.get('mochi_mentions','')[:80]}")
+        print(f"  ⚠️ 痛点: {', '.join(analysis.get('pain_points',[])[:3])}")
+    else:
+        analysis = {}
+        if not ARK_KEY: print("⚠️ 未设置 ARK_API_KEY，跳过分析")
 
     # Save current month for next time
     weekly_curr = collections.Counter()
@@ -250,6 +334,88 @@ def main():
             else:
                 prev_top_html += f'<li><span class="rank">{i+1}</span><span class="name">{name}</span><span class="score">~{score}条</span></li>'
 
+
+    # Build ARK analysis HTML blocks
+    analysis_html = ""
+    if analysis:
+        disc_cards = ""
+        buzz_bg = {"🔥高":"rgba(255,107,107,.1)","📊中":"rgba(255,171,0,.1)","💬一般":"rgba(100,100,255,.1)"}
+        buzz_bd = {"🔥高":"rgba(255,107,107,.25)","📊中":"rgba(255,171,0,.25)","💬一般":"rgba(100,100,255,.15)"}
+        for d in analysis.get("hot_discussions",[]):
+            bg = buzz_bg.get(d.get("buzz",""),"rgba(255,255,255,.05)")
+            bd = buzz_bd.get(d.get("buzz",""),"rgba(255,255,255,.1)")
+            disc_cards += f'<div class="disc-card" style="border-color:{bd};background:{bg}"><div class="disc-header"><span class="buzz-badge">{d.get("buzz","")}</span> {d.get("theme","")}</div><div class="disc-body">{d.get("detail","")}</div></div>'
+        pain_html = "".join(f'<li class="pain-item">⚠️ {p}</li>' for p in analysis.get("pain_points",[]))
+        high_html = "".join(f'<li class="highlight-item">✨ {h}</li>' for h in analysis.get("highlights",[]))
+        quotes_html = "".join(f'<div class="quote-card">「{q}」</div>' for q in analysis.get("notable_quotes",[]))
+        kw_html = ""
+        if analysis.get("keyword_cloud"):
+            tags = " ".join(f'<span class="tag kw">{w}</span>' for w in analysis["keyword_cloud"])
+            kw_html = f'<div class="section"><div class="section-title"><span class="icon">🏷️</span> 高频关键词</div><div class="tags-area">{tags}</div></div>'
+        analysis_html = ""
+
+        # Hot discussion cards
+        disc_cards = ""
+        buzz_bg = {"🔥高":"rgba(255,107,107,.1)","📊中":"rgba(255,171,0,.1)","💬一般":"rgba(100,100,255,.1)"}
+        buzz_bd = {"🔥高":"rgba(255,107,107,.25)","📊中":"rgba(255,171,0,.25)","💬一般":"rgba(100,100,255,.15)"}
+        for d in analysis.get("hot_discussions",[]):
+            bg = buzz_bg.get(d.get("buzz",""),"rgba(255,255,255,.05)")
+            bd = buzz_bd.get(d.get("buzz",""),"rgba(255,255,255,.1)")
+            disc_cards += f'<div class="disc-card" style="border-color:{bd};background:{bg}"><div class="disc-header"><span class="buzz-badge">{d.get("buzz","")}</span> {d.get("theme","")}</div><div class="disc-body">{d.get("detail","")}</div></div>'
+        disc_fallback = disc_cards if disc_cards else '<p style="color:#5a6480">暂无数据</p>'
+
+        pain_html = "".join(f'<li class="pain-item">⚠️ {p}</li>' for p in analysis.get("pain_points",[]))
+        pain_fallback = pain_html if pain_html else '<li style="color:#5a6480">暂无</li>'
+
+        high_html = "".join(f'<li class="highlight-item">✨ {h}</li>' for h in analysis.get("highlights",[]))
+        high_fallback = high_html if high_html else '<li style="color:#5a6480">暂无</li>'
+
+        quotes_html = "".join(f'<div class="quote-card">「{q}」</div>' for q in analysis.get("notable_quotes",[]))
+        quotes_fallback = quotes_html if quotes_html else '<p style="color:#5a6480">暂无</p>'
+
+        emerging_html = f'<div style="margin-top:12px;padding:10px;background:rgba(0,212,255,.05);border-radius:8px;font-size:12px;color:#8892b0">🔮 新趋势：{analysis.get("emerging_topics","")}</div>' if analysis.get("emerging_topics") else ""
+
+        kw_html = ""
+        if analysis.get("keyword_cloud"):
+            tags = " ".join(f'<span class="tag kw">{w}</span>' for w in analysis["keyword_cloud"])
+            kw_html = f'<div class="section"><div class="section-title"><span class="icon">🏷️</span> 高频关键词</div><div class="tags-area">{tags}</div></div>'
+
+        analysis_html = f'''
+<div class="section">
+  <div class="section-title"><span class="icon">🤖</span> LLM 舆情分析 · {month_cn}</div>
+  <div class="section-title" style="font-size:14px;color:#b388ff;margin-bottom:10px"><span class="icon">🔥</span> 热议话题</div>
+  {disc_fallback}
+  <div style="margin-top:16px">
+    <div class="two-col" style="margin-top:12px">
+      <div>
+        <div class="section-title" style="font-size:14px;color:#ff6b6b"><span class="icon">⚠️</span> 关注痛点</div>
+        <ul class="pain-list">{pain_fallback}</ul>
+      </div>
+      <div>
+        <div class="section-title" style="font-size:14px;color:#00e676"><span class="icon">✨</span> 本月亮点</div>
+        <ul class="highlight-list">{high_fallback}</ul>
+      </div>
+    </div>
+  </div>
+  <div style="margin-top:16px">
+    <div class="section-title" style="font-size:14px;color:#00d4ff"><span class="icon">💬</span> 代表发言</div>
+    <div class="quotes-area">{quotes_fallback}</div>
+  </div>
+  {emerging_html}
+</div>
+'''
+        if analysis.get("mochi_mentions"):
+            mochi_extra = f'<div style="margin-top:12px;padding:10px;background:rgba(255,171,0,.05);border-radius:8px;font-size:12px;color:#ffab00">💬 具体评价：{analysis.get("mochi_feedback","")}</div>' if analysis.get("mochi_feedback") and analysis.get("mochi_feedback") != "无" else ""
+            mochi_ment = analysis.get("mochi_mentions","")
+            mochi_extra = ""
+            fb = analysis.get("mochi_feedback","")
+            if fb and fb != "无":
+                mochi_extra = f'<div style="margin-top:12px;padding:10px;background:rgba(255,171,0,.05);border-radius:8px;font-size:12px;color:#ffab00">💬 具体评价：{fb}</div>'
+            analysis_html += f'<div class="section"><div class="section-title"><span class="icon">🤖</span> Mochi 小助手 · 创作者反馈</div><p style="color:#e0e6f0;font-size:14px;line-height:1.8">{mochi_ment}</p>{mochi_extra}</div>'
+        analysis_html += kw_html
+        if analysis.get("monthly_summary"):
+            analysis_html += f'<div class="section"><div class="section-title"><span class="icon">📝</span> 本月运营总结</div><p style="color:#e0e6f0;font-size:14px;line-height:1.8">{analysis.get("monthly_summary","")}</p></div>'
+
     # Content category (estimated)
     cat_html = '''<div style="background:rgba(0,0,0,.15);border-radius:10px;padding:14px;text-align:center"><div style="font-size:28px;font-weight:700;color:#5a6480">50%</div><div style="font-size:12px;color:#8892b0;margin-top:4px">日常闲聊</div></div>
     <div style="background:rgba(0,0,0,.15);border-radius:10px;padding:14px;text-align:center"><div style="font-size:28px;font-weight:700;color:#ff6b9d">14%</div><div style="font-size:12px;color:#8892b0;margin-top:4px">作品相关</div></div>
@@ -319,6 +485,18 @@ body{{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,'Inter','Segoe 
 .rank-list .score{{font-weight:600;color:#00d4ff}}
 .footer{{text-align:center;padding:20px;color:#5a6480;font-size:11px}}
 .footer p{{margin-top:2px}}
+.disc-card{{border:1px solid;border-radius:10px;padding:14px 18px;margin-bottom:10px}}
+.disc-header{{font-weight:600;font-size:14px;margin-bottom:6px;color:#e0e6f0}}
+.disc-body{{font-size:12.5px;color:#8892b0;line-height:1.6}}
+.buzz-badge{{font-size:10px;margin-right:6px}}
+.pain-list,.highlight-list{{list-style:none;padding:0}}
+.pain-item,.highlight-item{{padding:6px 10px;margin:4px 0;background:rgba(0,0,0,.15);border-radius:6px;font-size:12.5px;color:#e0e6f0}}
+.pain-item{{border-left:3px solid rgba(255,107,107,.5)}}
+.highlight-item{{border-left:3px solid rgba(0,230,118,.5)}}
+.quotes-area{{display:flex;flex-wrap:wrap;gap:8px}}
+.quote-card{{background:rgba(0,212,255,.05);border:1px solid rgba(0,212,255,.12);border-radius:8px;padding:10px 14px;font-size:12px;color:#c0c8d8;font-style:italic;flex:1;min-width:200px}}
+.tags-area{{line-height:2.2}}
+.tag.kw{{display:inline-block;background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.2);border-radius:6px;padding:2px 10px;font-size:10px;color:#00d4ff;margin:2px 4px}}
 </style></head>
 <body><div class="container">
 
@@ -399,6 +577,14 @@ body{{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,'Inter','Segoe 
             mom_info = f"\n📈 消息环比：**{mom_total}** | 👥 人数环比：**{mom_people}**"
 
         feishu_text = f"📢 主频道：**{main_count:,}** 条（👥 {main_speakers}人）{mom_info}\n🗣️ 全频道总计：**{total:,}** 条\n📅 日均：**{main_count//max(now.day,1)}** 条/天" + ("\n\n⚠️ 月度未结束" if is_partial else "")
+
+        if analysis:
+            sent = analysis.get('user_sentiment','')
+            topics = [d.get('theme','') for d in analysis.get('hot_discussions',[])]
+            mochi = analysis.get('mochi_mentions','')
+            feishu_text += f"\n\n🤖 **LLM 舆情分析**\n🔥 热议：{'、'.join(topics[:3])}\n💬 情绪：{sent[:100]}\n"
+            if mochi and '暂无' not in mochi:
+                feishu_text += f"\n🤖 Mochi反馈：{mochi[:120]}\n"
 
         payload = json.dumps({
             "msg_type": "interactive",
