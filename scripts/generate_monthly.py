@@ -87,7 +87,7 @@ def main():
         print("❌ DISCORD_BOT_TOKEN not set"); return
 
     now = datetime.datetime.now()
-    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0, tzinfo=datetime.timezone.utc)
     month_cn = f"{now.year}年{now.month}月"
     month_en = now.strftime("%B %Y")
     prev_month = month_start - datetime.timedelta(days=1)
