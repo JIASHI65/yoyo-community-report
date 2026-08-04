@@ -1,61 +1,47 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Yoyo Creative Studio · 2026年8月月报</title>
+<title>Yoyo KOC · 周报 07/28-08/04</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,'Inter','Segoe UI',sans-serif;min-height:100vh}
-.container{max-width:1200px;margin:0 auto;padding:20px}
-.header{text-align:center;padding:40px 0 30px;border-bottom:1px solid rgba(0,255,255,.1);margin-bottom:30px}
+.container{max-width:1100px;margin:0 auto;padding:20px}
+.header{text-align:center;padding:40px 0 30px;border-bottom:1px solid rgba(0,255,255,.08);margin-bottom:28px}
 .header .logo{font-size:13px;color:#00d4ff;letter-spacing:3px;text-transform:uppercase;margin-bottom:8px}
 .header h1{font-size:34px;font-weight:700;background:linear-gradient(135deg,#00d4ff,#7b2ff7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .header .subtitle{color:#8892b0;font-size:14px;margin-top:6px}
-.header .badge{display:inline-block;background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.3);color:#00d4ff;padding:4px 14px;border-radius:12px;font-size:11px;margin-top:8px}
-.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:28px}
-.kpi-card{background:linear-gradient(135deg,rgba(20,30,60,.8),rgba(15,20,40,.8));border:1px solid rgba(0,212,255,.12);border-radius:14px;padding:18px 20px;position:relative;overflow:hidden}
+.header .badge{display:inline-block;background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.3);color:#00d4ff;padding:4px 14px;border-radius:12px;font-size:11px;margin-top:10px}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:26px}
+.kpi-card{background:linear-gradient(135deg,rgba(20,30,60,.8),rgba(15,20,40,.8));border:1px solid rgba(0,212,255,.1);border-radius:14px;padding:18px 20px;position:relative;overflow:hidden}
 .kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#00d4ff,#7b2ff7);opacity:.5}
 .kpi-card .label{color:#8892b0;font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:1px}
-.kpi-card .value{font-size:30px;font-weight:700;margin:6px 0 3px;letter-spacing:-1px;line-height:1.1}
-.kpi-card .value .unit{font-size:14px;font-weight:400;margin-left:4px;color:#8892b0}
+.kpi-card .value{font-size:30px;font-weight:700;margin:6px 0 3px;letter-spacing:-1px}
+.kpi-card .muted{font-size:12px;color:#5a6480;margin-top:2px}
 .kpi-card .change{font-size:12px;font-weight:500;margin-top:2px}
-.kpi-card .change.up{color:#00e676}
-.kpi-card .change.down{color:#ff6b6b}
-.blue{color:#00d4ff}.green{color:#00e676}.pink{color:#ff6b9d}.purple{color:#b388ff}.orange{color:#ffab00}
-.section{background:linear-gradient(135deg,rgba(20,30,60,.55),rgba(15,20,40,.55));border:1px solid rgba(0,212,255,.08);border-radius:14px;padding:26px;margin-bottom:22px}
-.section-title{font-size:17px;font-weight:600;color:#00d4ff;margin-bottom:18px;display:flex;align-items:center;gap:8px}
-.section-title .icon{font-size:20px}
-.data-table{width:100%;border-collapse:collapse;font-size:13px}
-.data-table th{color:#5a6480;font-weight:500;text-transform:uppercase;letter-spacing:.5px;padding:10px 10px;text-align:left;border-bottom:1px solid rgba(255,255,255,.05);font-size:11px}
-.data-table td{padding:10px 10px;border-bottom:1px solid rgba(255,255,255,.03)}
-.data-table tr:hover td{background:rgba(0,212,255,.03)}
-.data-table .num{text-align:right;font-weight:500}
-.data-table .up{color:#00e676}
-.data-table .down{color:#ff6b6b}
-/* Weekly dual bar chart */
-.weekly-chart{display:flex;gap:20px;align-items:flex-end;height:200px;padding:12px 0;justify-content:center}
-.week-group{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;max-width:70px}
-.week-group .bars{display:flex;gap:6px;align-items:flex-end;height:140px}
-.week-group .bar{width:22px;border-radius:4px 4px 0 0;min-height:2px}
-.week-group .bar.prev{background:rgba(0,212,255,.35)}
-.week-group .bar.curr{background:linear-gradient(180deg,#7b2ff7,rgba(123,47,247,.4))}
-.week-group .week-nums{display:flex;gap:6px;font-size:9px}
-.week-group .prev-num{color:#5a6480}
-.week-group .curr-num{color:#b388ff;font-weight:600}
-.week-group .week-label{font-size:10px;color:#5a6480;font-weight:600;margin-top:4px}
-.legend{display:flex;justify-content:center;gap:20px;margin-bottom:12px;font-size:11px;color:#8892b0}
-.legend span{display:flex;align-items:center;gap:6px}
-.legend .dot{width:10px;height:10px;border-radius:2px;display:inline-block}
-/* Two column layout */
+.kpi-card .change.up{color:#00e676}.kpi-card .change.down{color:#ff6b6b}
+.blue{color:#00d4ff}.green{color:#00e676}.pink{color:#ff6b9d}.orange{color:#ffab00}.purple{color:#b388ff}
+.section{background:linear-gradient(135deg,rgba(20,30,60,.5),rgba(15,20,40,.5));border:1px solid rgba(0,212,255,.06);border-radius:14px;padding:24px;margin-bottom:20px}
+.section-title{font-size:16px;font-weight:600;color:#00d4ff;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.section-title .icon{font-size:18px}
 .two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px}
 @media(max-width:768px){.two-col{grid-template-columns:1fr}.kpi-grid{grid-template-columns:repeat(2,1fr)}}
-/* Rank list */
+.data-table{width:100%;border-collapse:collapse;font-size:12.5px}
+.data-table th{color:#5a6480;font-weight:500;text-transform:uppercase;letter-spacing:.5px;padding:9px;text-align:left;border-bottom:1px solid rgba(255,255,255,.05);font-size:10px}
+.data-table td{padding:9px;border-bottom:1px solid rgba(255,255,255,.03)}
+.data-table tr:hover td{background:rgba(0,212,255,.02)}
+.data-table .num{text-align:right;font-weight:500}
+.data-table .dim td{opacity:.35}
+.daily-chart{display:flex;gap:6px;align-items:flex-end;height:140px;padding:12px 0;justify-content:center}
+.daily-bar{flex:1;max-width:80px;display:flex;flex-direction:column;align-items:center;gap:3px}
+.daily-bar .bar{width:100%;border-radius:4px 4px 0 0;min-height:4px;background:linear-gradient(180deg,#00d4ff,rgba(0,212,255,.15))}
+.daily-bar .val-label{font-size:9px;font-weight:600;color:#e0e6f0}
+.daily-bar .day-label{font-size:9px;color:#5a6480;margin-top:1px}
 .rank-list{list-style:none}
-.rank-list li{display:flex;align-items:center;padding:8px 10px;margin:3px 0;background:rgba(0,0,0,.15);border-radius:8px;gap:10px;font-size:12.5px}
-.rank-list .rank{font-weight:700;font-size:15px;min-width:28px;text-align:center}
+.rank-list li{display:flex;align-items:center;padding:7px 10px;margin:2px 0;background:rgba(0,0,0,.15);border-radius:8px;gap:10px;font-size:12px}
+.rank-list .rank{font-weight:700;font-size:14px;min-width:28px;text-align:center}
 .rank-list .name{flex:1}
 .rank-list .score{font-weight:600;color:#00d4ff}
-.footer{text-align:center;padding:20px;color:#5a6480;font-size:11px}
-.footer p{margin-top:2px}
+.alert{background:rgba(255,107,107,.08);border:1px solid rgba(255,107,107,.25);border-radius:10px;padding:12px 18px;margin-bottom:16px;font-size:13px;color:#ff6b6b}
 .disc-card{border:1px solid;border-radius:10px;padding:14px 18px;margin-bottom:10px}
 .disc-header{font-weight:600;font-size:14px;margin-bottom:6px;color:#e0e6f0}
 .disc-body{font-size:12.5px;color:#8892b0;line-height:1.6}
@@ -68,65 +54,78 @@ body{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,'Inter','Segoe U
 .quote-card{background:rgba(0,212,255,.05);border:1px solid rgba(0,212,255,.12);border-radius:8px;padding:10px 14px;font-size:12px;color:#c0c8d8;font-style:italic;flex:1;min-width:200px}
 .tags-area{line-height:2.2}
 .tag.kw{display:inline-block;background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.2);border-radius:6px;padding:2px 10px;font-size:10px;color:#00d4ff;margin:2px 4px}
+.footer{text-align:center;padding:24px;color:#5a6480;font-size:11px}
+.footer p{margin-top:3px}
 </style></head>
 <body><div class="container">
 
 <div class="header">
-  <div class="logo">📊 Monthly Report · August 2026</div>
+  <div class="logo">📊 Weekly Report</div>
   <h1>Yoyo Creative Studio</h1>
-  <div class="subtitle">2026年8月社群运营月报 · 2026/08/03 生成</div>
-  <span class="badge">🤖 自动生成 · 创作者社群</span>
-  <span class="badge" style="background:rgba(255,171,0,.15);border:1px solid rgba(255,171,0,.3);color:#ffab00">⚠️ 月度未结束，数据为当前统计</span>
+  <div class="subtitle">07/28-08/04 · KOC 创作者社群周报 · 2026/08/04 生成</div>
+  <span class="badge">🤖 Mochi Bot · 深度分析 by DeepSeek</span>
 </div>
+
+
 
 <div class="kpi-grid">
-  <div class="kpi-card"><div class="label">📢 主频道消息</div><div class="value blue">584<span class="unit">条</span></div><div class="change up">环比 新增</div></div><div class="kpi-card"><div class="label">👥 发言人数</div><div class="value green">24<span class="unit">人</span></div><div class="change up">环比 新增</div></div><div class="kpi-card"><div class="label">🗣️ 全频道总计</div><div class="value pink">589<span class="unit">条</span></div><div class="change up">环比 新增</div></div>
+  <div class="kpi-card"><div class="label">🗣️ 全频道消息</div><div class="value blue">2,686</div><div class="muted">日均 383 条</div><div class="change up">环比 新增</div></div>
+  <div class="kpi-card"><div class="label">💬 主频道</div><div class="value green">2,655</div><div class="muted">👥 29 人发言</div></div>
+  <div class="kpi-card"><div class="label">🆕 新发言者</div><div class="value pink">29</div><div class="muted">本周首次说话</div></div>
+  <div class="kpi-card"><div class="label">🔄 回流用户</div><div class="value orange">0</div><div class="muted">上周也发言了</div></div>
+  <div class="kpi-card"><div class="label">📡 活跃频道</div><div class="value purple">5<span style="font-size:14px;color:#8892b0">/8</span></div><div class="muted">本周有消息的频道</div></div>
+  <div class="kpi-card"><div class="label">😊 社群氛围</div><div class="value" style="color:#00d4ff;font-size:22px">见分析</div><span style="font-size:11px;color:#8892b0">下方 LLM 深度分析</span></div>
 </div>
 
-<div class="section">
-  <div class="section-title"><span class="icon">📈</span> 月度核心指标对比 · 2026年7月 vs 2026年8月</div>
-  <table class="data-table">
-    <tr><th>指标</th><th class="num">2026年7月</th><th class="num">2026年8月</th><th class="num">环比涨幅</th></tr>
-    <tr><td>公开频道总消息</td><td class="num">0</td><td class="num">584</td><td class="num up">新增</td></tr><tr><td>日均消息</td><td class="num">0</td><td class="num">194</td><td class="num up">新增</td></tr><tr><td>发言人数</td><td class="num">0</td><td class="num">24</td><td class="num up">新增</td></tr><tr><td>活跃子频道数</td><td class="num">0</td><td class="num">4</td><td class="num up">新增</td></tr>
-  </table>
-</div>
 
 <div class="section">
-  <div class="section-title"><span class="icon">📊</span> 周活跃度趋势 · 2026年7月 vs 2026年8月</div>
-  
-  <div class="weekly-chart"><div class="week-group"><div class="bars"><div class="bar prev" style="height:0px" title="2026年7月: 0"></div><div class="bar curr" style="height:100px" title="2026年8月: 584"></div></div><div class="week-nums"><span class="prev-num">0</span><span class="curr-num">584</span></div><div class="week-label">W1</div></div></div>
-  <p style="text-align:center;color:#5a6480;font-size:10px;margin-top:8px">💡 非Bot消息统计 · 日度趋势</p>
+  <div class="section-title"><span class="icon">🤖</span> LLM 深度分析 · 本周</div>
+  <div class="section-title" style="font-size:14px;color:#b388ff;margin-bottom:10px"><span class="icon">🔥</span> 热议话题</div>
+  <div class="disc-card" style="border-color:rgba(100,100,255,.15);background:rgba(100,100,255,.1)"><div class="disc-header"><span class="buzz-badge">💬一般</span> VIP礼物发放机制</div><div class="disc-body">sultana_xo 询问每月VIP礼物的领取要求，表示自己还没收到。jannwinn 解释曾有过延迟情况，并提到系统初期调整。mltaurora 表达希望明天能收到。讨论反映出会员对奖励时效敏感，社群对规则存在不确定感。虽然只有3人参与，但涉及核心激励体系，若延迟普遍可能影响活跃度。</div></div><div class="disc-card" style="border-color:rgba(255,107,107,.25);background:rgba(255,107,107,.1)"><div class="disc-header"><span class="buzz-badge">🔥高</span> 创作分享与求助互动</div><div class="disc-body">多位创作者分享Facebook/Instagram/TikTok链接（thisonegirl25、moxie6908、kanansai、dyniadyniadynia），求点赞互动。thisonegirl25 直接请求帮助增加曝光。反映出社群有互助意识，但也显示创作者需要外部流量支持。部分帖子有具体建造主题（如雨林、鱼市），体现UGC多样性。</div></div><div class="disc-card" style="border-color:rgba(255,171,0,.25);background:rgba(255,171,0,.1)"><div class="disc-header"><span class="buzz-badge">📊中</span> 新人融入与社群温度</div><div class="disc-body">lin.bean17 分享创建TikTok账号的困难，但迅速被社群友好氛围打动，称‘genuine and friendly’。moxie6908 等用‘cozy’、‘incredible’欢迎。新人体验到积极社交支持，但仅此一条直接新人心声，其他活跃用户多为老面孔。</div></div>
+  <div style="margin-top:16px">
+    <div class="two-col" style="margin-top:12px">
+      <div>
+        <div class="section-title" style="font-size:14px;color:#ff6b6b"><span class="icon">⚠️</span> 关注痛点</div>
+        <ul class="pain-list"><li class="pain-item">⚠️ VIP礼物延迟或规则模糊：sultana_xo 和 mltaurora 对月初礼物未到表示困惑和失望，jannwinn 证实曾有延迟，系统说明不清晰。解决方案未被提出，可能积累对运营的信任风险。</li><li class="pain-item">⚠️ 市场轮换顺序不透明：mltaurora 抱怨 Owl Express 市场迟迟未出现，询问大家之前的好市场顺序。.shiro666 列出轮换列表，但无官方解释，创作者对资源获取节点焦虑。</li><li class="pain-item">⚠️ 外部平台账号创建困难：lin.bean17 花两天创建TikTok账号，因邮箱混淆导致，虽社群安慰，但技术门槛可能阻碍新创作者分享作品。</li><li class="pain-item">⚠️ 活跃度下降信号：gingerstarburns 自述不太活跃，只被宠物内容吸引回来。社群中少数表达‘不那么活跃’，若持续可能流失。</li></ul>
+      </div>
+      <div>
+        <div class="section-title" style="font-size:14px;color:#00e676"><span class="icon">✨</span> 本周亮点</div>
+        <ul class="highlight-list"><li class="highlight-item">✨ moxie6908 分享‘鱼市码头’建造并引导查看FB，获点赞互动，体现创意分享活力。</li><li class="highlight-item">✨ lin.bean17 克服账号困难后加入，社群立刻给与温暖反馈，强化归属感。</li><li class="highlight-item">✨ kenz_lynn98 分享宠物故事引发共鸣，gingerstarburns 因此回看频道，宠物内容成活跃触点。</li><li class="highlight-item">✨ neowdssu 收到实物礼物包裹，物流7天，jannwinn 称赞快速，实物激励效果可见。</li></ul>
+      </div>
+    </div>
+  </div>
+  <div style="margin-top:16px">
+    <div class="section-title" style="font-size:14px;color:#00d4ff"><span class="icon">💬</span> 代表发言</div>
+    <div class="quotes-area"><div class="quote-card">「Safe at home! So happy to back in my own place lmao.」</div><div class="quote-card">「Hey Guys just posted my Amazon Rainforest build on Facebook if anyone wants to help with engagements. I would really appreciate it 🥰🥰」</div><div class="quote-card">「Guys, what’s the requirement for receiving the VIP gift at the beginning of the month? I haven’t received mine yet so I’m wondering if I didn’t meet some requirement?」</div><div class="quote-card">「I get that! I felt the same for the first 2 hours LOL Quickly got over that when I realized how genuine and friendly this whole group is🥹」</div><div class="quote-card">「Hi I'm not very active lately but this is the first channel I caught up on bc all your pets are such cuties 🥺」</div><div class="quote-card">「It was in transit for 7 days according to the tracking number」</div></div>
+  </div>
+  <div style="margin-top:12px;padding:10px;background:rgba(0,212,255,.05);border-radius:8px;font-size:12px;color:#8892b0">🔮 新趋势：实物礼物（VIP/奖品）物流体验和宠物话题热度上升，创作者开始分享真实生活故事，社群从纯UGC转向更生活化互动。</div>
 </div>
+<div class="section"><div class="section-title"><span class="icon">🤖</span> Mochi 小助手 · 创作者反馈</div><p style="color:#e0e6f0;font-size:14px;line-height:1.8">聊天记录中未出现Mochi、摸鱼小助手、bot等关键词，运营bot未参与本周讨论或未被用户提及。</p></div><div class="section"><div class="section-title"><span class="icon">🏷️</span> 高频关键词</div><div class="tags-area"><span class="tag kw">VIP礼物</span> <span class="tag kw">Facebook分享</span> <span class="tag kw">宠物</span> <span class="tag kw">市场轮换</span> <span class="tag kw">创作求助</span> <span class="tag kw">新人融入</span> <span class="tag kw">延迟</span> <span class="tag kw">温馨</span> <span class="tag kw">实物包裹</span> <span class="tag kw">账号困难</span> <span class="tag kw">活跃度</span> <span class="tag kw">真诚友好</span></div></div><div class="section"><div class="section-title"><span class="icon">📝</span> 本周运营总结</div><p style="color:#e0e6f0;font-size:14px;line-height:1.8">本周社群以创作分享和实物礼物话题为主，新人融入顺畅，但VIP礼物延迟与市场轮换模糊引发小范围失望。宠物内容成活跃剂，但部分老成员显露流失倾向。建议：明确VIP规则通知、优化市场轮换透明度、利用宠物话题促进互动。</p></div>
 
 <div class="section">
-  <div class="section-title"><span class="icon">📡</span> 各频道消息量对比 · 2026年7月 vs 2026年8月</div>
-  <table class="data-table">
-    <tr><th>频道</th><th class="num">2026年7月</th><th class="num">2026年8月</th><th class="num">变化幅度</th></tr>
-    <tr><td>#creators-exchange</td><td class="num">0</td><td class="num">584</td><td class="num up">新增</td></tr><tr><td>#bulletin-board</td><td class="num">0</td><td class="num">2</td><td class="num up">新增</td></tr><tr><td>#show-pet</td><td class="num">0</td><td class="num">2</td><td class="num up">新增</td></tr><tr><td>#show-merch</td><td class="num">0</td><td class="num">1</td><td class="num up">新增</td></tr><tr><td>#refer-a-friend</td><td class="num">0</td><td class="num">0</td><td class="num down">-</td></tr><tr><td>#creator-tier-system</td><td class="num">0</td><td class="num">0</td><td class="num down">-</td></tr><tr><td>#official-inspirations</td><td class="num">0</td><td class="num">0</td><td class="num down">-</td></tr><tr><td>#rules-faq</td><td class="num">0</td><td class="num">0</td><td class="num down">-</td></tr>
-  </table>
+  <div class="section-title"><span class="icon">📈</span> creators-exchange 日活跃趋势</div>
+  <div class="daily-chart"><div class="daily-bar"><div class="bar" style="height:120px"></div><div class="val-label">903</div><div class="day-label">29日</div></div><div class="daily-bar"><div class="bar" style="height:72px"></div><div class="val-label">545</div><div class="day-label">30日</div></div><div class="daily-bar"><div class="bar" style="height:36px"></div><div class="val-label">274</div><div class="day-label">31日</div></div><div class="daily-bar"><div class="bar" style="height:53px"></div><div class="val-label">401</div><div class="day-label">01日</div></div><div class="daily-bar"><div class="bar" style="height:5px"></div><div class="val-label">43</div><div class="day-label">02日</div></div><div class="daily-bar"><div class="bar" style="height:20px"></div><div class="val-label">158</div><div class="day-label">03日</div></div><div class="daily-bar"><div class="bar" style="height:4px"></div><div class="val-label">2</div><div class="day-label">04日</div></div></div>
+  <p style="text-align:center;color:#5a6480;font-size:10px;margin-top:6px">💡 非 Bot 消息量 · 条/天</p>
 </div>
 
 <div class="two-col">
 <div class="section">
-  <div class="section-title"><span class="icon">🏆</span> 2026年8月 TOP10 活跃创作者</div>
-  <ul class="rank-list"><li><span class="rank" style="color:#00d4ff">🥇</span><span class="name">valkyricardo</span><span class="score">~143条</span></li><li><span class="rank" style="color:#b388ff">🥈</span><span class="name">moxie6908</span><span class="score">~106条</span></li><li><span class="rank" style="color:#ffab00">🥉</span><span class="name">thisonegirl25</span><span class="score">~49条</span></li><li><span class="rank">4</span><span class="name">lin.bean17</span><span class="score">~39条</span></li><li><span class="rank">5</span><span class="name">maished.</span><span class="score">~36条</span></li><li><span class="rank">6</span><span class="name">dyniadyniadynia</span><span class="score">~30条</span></li><li><span class="rank">7</span><span class="name">.shiro666</span><span class="score">~27条</span></li><li><span class="rank">8</span><span class="name">scrappyqueen</span><span class="score">~27条</span></li><li><span class="rank">9</span><span class="name">nho0o</span><span class="score">~22条</span></li><li><span class="rank">10</span><span class="name">kin037938</span><span class="score">~22条</span></li></ul>
+  <div class="section-title"><span class="icon">📡</span> 各频道消息分布</div>
+  <table class="data-table">
+    <tr><th>频道</th><th class="num">消息量</th></tr>
+    <tr class=""><td>🔥 #creators-exchange</td><td class="num">2,655</td></tr><tr class=""><td>💤 #show-pet</td><td class="num">20</td></tr><tr class=""><td>💤 #show-merch</td><td class="num">7</td></tr><tr class=""><td>💤 #bulletin-board</td><td class="num">3</td></tr><tr class=""><td>💤 #rules-faq</td><td class="num">1</td></tr><tr class="dim"><td>⛔ #refer-a-friend</td><td class="num">0</td></tr><tr class="dim"><td>⛔ #creator-tier-system</td><td class="num">0</td></tr><tr class="dim"><td>⛔ #official-inspirations</td><td class="num">0</td></tr>
+  </table>
+  <div style="margin-top:8px;font-size:10px;color:#5a6480">🔥>100 📊>20 💤≤20 ⛔无消息</div>
 </div>
-</div>
-
 <div class="section">
-  <div class="section-title"><span class="icon">🍩</span> 内容分类占比（估算）</div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px"><div style="background:rgba(0,0,0,.15);border-radius:10px;padding:14px;text-align:center"><div style="font-size:28px;font-weight:700;color:#5a6480">50%</div><div style="font-size:12px;color:#8892b0;margin-top:4px">日常闲聊</div></div>
-    <div style="background:rgba(0,0,0,.15);border-radius:10px;padding:14px;text-align:center"><div style="font-size:28px;font-weight:700;color:#ff6b9d">14%</div><div style="font-size:12px;color:#8892b0;margin-top:4px">作品相关</div></div>
-    <div style="background:rgba(0,0,0,.15);border-radius:10px;padding:14px;text-align:center"><div style="font-size:28px;font-weight:700;color:#00e676">14%</div><div style="font-size:12px;color:#8892b0;margin-top:4px">感谢反馈</div></div>
-    <div style="background:rgba(0,0,0,.15);border-radius:10px;padding:14px;text-align:center"><div style="font-size:28px;font-weight:700;color:#ffab00">12%</div><div style="font-size:12px;color:#8892b0;margin-top:4px">规则答疑</div></div>
-    <div style="background:rgba(0,0,0,.15);border-radius:10px;padding:14px;text-align:center"><div style="font-size:28px;font-weight:700;color:#b388ff">10%</div><div style="font-size:12px;color:#8892b0;margin-top:4px">创作指导</div></div></div>
-  <p style="text-align:center;color:#5a6480;font-size:10px;margin-top:8px">💡 精确内容分类需引入 LLM 自动标注，目前为合理估算</p>
+  <div class="section-title"><span class="icon">🏆</span> TOP 10 活跃创作者</div>
+  <ul class="rank-list"><li><span class="rank" style="color:#00d4ff">🥇</span><span class="name">valkyricardo</span><span class="score">~756条</span></li><li><span class="rank" style="color:#b388ff">🥈</span><span class="name">moxie6908</span><span class="score">~363条</span></li><li><span class="rank" style="color:#ffab00">🥉</span><span class="name">jannwinn</span><span class="score">~223条</span></li><li><span class="rank">4</span><span class="name">thisonegirl25</span><span class="score">~189条</span></li><li><span class="rank">5</span><span class="name">lin.bean17</span><span class="score">~188条</span></li><li><span class="rank">6</span><span class="name">nho0o</span><span class="score">~155条</span></li><li><span class="rank">7</span><span class="name">iamnotmagic</span><span class="score">~120条</span></li><li><span class="rank">8</span><span class="name">scrappyqueen</span><span class="score">~107条</span></li><li><span class="rank">9</span><span class="name">.shiro666</span><span class="score">~98条</span></li><li><span class="rank">10</span><span class="name">martha_bunnink</span><span class="score">~85条</span></li></ul>
+</div>
 </div>
 
 <div class="footer">
-  <p>🤖 由 GitHub Actions 自动生成 · 2026年08月03日 13:55 UTC</p>
-  <p>数据来源: Discord Bot Mochi's Bot · 通过 Supabase Edge Function 中转</p>
-  <p style="margin-top:6px;color:#5a6480;font-size:10px">💡 上月数据来自缓存文件，本月结束后缓存会自动更新</p>
+  <p>🤖 由 GitHub Actions 自动生成 · 2026年08月04日 01:57 UTC</p>
+  <p>数据来源: Discord · Yoyo Creative Studio · 话题分析: DeepSeek V4 Flash · 通过 ARK API</p>
 </div>
 
 </div></body></html>
