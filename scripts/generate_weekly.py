@@ -95,20 +95,23 @@ def fetch_samples(channel_id, max_n=10):
 
 def arkanalyze(messages):
     meaningful = [m for m in messages if len(m.strip()) > 5]
-    if not meaningful: return {"hot_discussions":[],"user_sentiment":"","pain_points":[],"highlights":[],"notable_quotes":[],"emerging_topics":"","keyword_cloud":[],"weekly_summary":"","mochi_mentions":"","mochi_feedback":""}
+    if not meaningful: return {"hot_discussions":[],"user_sentiment":"","pain_points":[],"highlights":[],"notable_quotes":[],"emerging_topics":"","keyword_cloud":[],"weekly_summary":"","mochi_mentions":"无","mochi_feedback":"无"}
     text = "\n".join(f"{i+1}. {m}" for i,m in enumerate(meaningful[:80]))
     prompt = f"""你是 Yoyo Creative Studio 游戏创作者社群的运营分析师。仔细阅读本周 Discord 聊天记录。
 
 社群背景：这是一个游戏 UGC 创作者社群。Mochi（摸鱼小助手）是运营助理 bot，负责积分统计、投稿管理、新人欢迎。运营对接人是 Mochi。
 
-请深度分析：
-1. 创作者在聊什么、创作什么、有什么困难
-2. 对积分规则、投稿流程、奖励兑换的讨论
-3. **重点：查找所有提到 Mochi、Mochi小助手、摸鱼、助理、bot、assistant、机器人 的讨论**
-4. 新人体验、老创作者动态
-5. 社群氛围、互助行为、潜在流失信号
+请深度分析（周报数据少，每条消息都要深挖）：
 
-⚠️ 重要：因为这是周报，数据量较少，请更深入挖掘每条消息的含义。不要泛泛而谈。
+1. **热议话题深层解读**：具体聊什么内容？有什么分歧或共识？这个话题为什么重要？谁在主导讨论？对社群有什么潜在影响？
+2. **创作者痛点**：具体抱怨什么游戏机制、流程、体验？不只是说积分规则不清楚，要说清楚哪里不清楚、影响了谁、有多严重。
+3. **积分/投稿/奖励讨论**：有人问积分怎么算吗？有人吐槽投稿流程吗？有人反映兑换体验吗？
+4. **新人体验**：新来的创作者遇到什么困难？有没有被帮助？有没有沉默或流失的迹象？
+5. **社群氛围**：互助行为有哪些？有没有矛盾？氛围向上还是向下？
+6. **Mochi 专项**：有没有人提到 Mochi 助手、摸鱼、bot？评价是什么？有没有功能吐槽或建议？
+7. **运营洞察**：你觉得这批数据里，Mochi 运营最该关注什么？
+
+不要泛泛而谈。每条分析都要有具体细节、具体人名（如果有）、具体场景。不只是统计，要有判断和洞察。
 
 返回纯JSON（不要markdown代码块）：
 {{"hot_discussions":[{{"theme":"12字主题","detail":"120字以上深度分析：聊什么、谁在说、不同观点、潜在影响","buzz":"🔥高/📊中/💬一般","participants":"几个人参与"}}],"user_sentiment":"80字：正/负面各占%、具体情绪关键词、与上周相比的变化","pain_points":["每条80字：具体抱怨什么游戏机制/流程、影响多大、有没有解决方案被提出"],"highlights":["每条40字：有趣事件、谁参与、社区反响"],"notable_quotes":["至少6条英文原文、选最有代表性的"],"emerging_topics":"40字：新趋势","keyword_cloud":["12个高频关键词"],"weekly_summary":"100字：本周一句话总结+值得关注的信号+建议运营动作","mochi_mentions":"60字：创作者对Mochi助手的评价、吐槽、建议（如没提到就说暂无）","mochi_feedback":"如有具体吐槽/建议摘录原话，否则写无"}}
@@ -128,8 +131,8 @@ def arkanalyze(messages):
                         raw = c.get("text","").strip()
                         for fence in ["```json","```"]: raw = raw.replace(fence,"")
                         return json.loads(raw)
-                    except: return {"hot_discussions":[],"user_sentiment":c.get("text","")[:200],"pain_points":[],"highlights":[],"notable_quotes":[],"emerging_topics":"","keyword_cloud":[],"weekly_summary":"","mochi_mentions":"","mochi_feedback":""}
-    return {"hot_discussions":[],"user_sentiment":"分析失败","pain_points":[],"highlights":[],"notable_quotes":[],"emerging_topics":"","keyword_cloud":[],"weekly_summary":"","mochi_mentions":"","mochi_feedback":""}
+                    except: return {"hot_discussions":[],"user_sentiment":c.get("text","")[:200],"pain_points":[],"highlights":[],"notable_quotes":[],"emerging_topics":"","keyword_cloud":[],"weekly_summary":"","mochi_mentions":"无","mochi_feedback":"无"}
+    return {"hot_discussions":[],"user_sentiment":"分析失败","pain_points":[],"highlights":[],"notable_quotes":[],"emerging_topics":"","keyword_cloud":[],"weekly_summary":"","mochi_mentions":"无","mochi_feedback":"无"}
 
 def fmt_change(c,p):
     if p==0 and c==0: return "-"
@@ -275,7 +278,10 @@ def main():
   {emerging}
 </div>
 '''
-        if analysis.get("mochi_mentions"):
+        mochi_txt = analysis.get("mochi_mentions","")
+        skip_words = ["暂无","未出现","未提及","没有提到","没有发现","未发现","无相关"]
+        has_mochi = mochi_txt and not any(w in mochi_txt for w in skip_words)
+        if has_mochi:
             fb = analysis.get("mochi_feedback","")
             extra = f'<div style="margin-top:12px;padding:10px;background:rgba(255,171,0,.05);border-radius:8px;font-size:12px;color:#ffab00">💬 具体评价：{fb}</div>' if fb and fb != "无" else ""
             analysis_html += f'<div class="section"><div class="section-title"><span class="icon">🤖</span> Mochi 小助手 · 创作者反馈</div><p style="color:#e0e6f0;font-size:14px;line-height:1.8">{analysis.get("mochi_mentions","")}</p>{extra}</div>'
@@ -437,7 +443,8 @@ body{{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,'Inter','Segoe 
             topics_for_feishu = [d.get('theme','') for d in analysis.get('hot_discussions',[])]
             text += f"\n\n🤖 **LLM 深度分析**\n🔥 热议：{'、'.join(topics_for_feishu[:3])}\n💬 情绪：{analysis.get('user_sentiment','')[:120]}"
             mochi = analysis.get('mochi_mentions','')
-            if mochi and '暂无' not in mochi:
+            skip_words2 = ["暂无","未出现","未提及","没有提到","没有发现","未发现","无相关"]
+            if mochi and not any(w in mochi for w in skip_words2):
                 text += f"\n🤖 Mochi反馈：{mochi[:100]}"
 
         text += f"\n\n📡 **频道 TOP 5**：{top5}"

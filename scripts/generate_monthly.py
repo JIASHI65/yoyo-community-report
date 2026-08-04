@@ -127,17 +127,23 @@ def fetch_samples(channel_id, month_start, max_samples=60):
     return samples
 
 def arkanalyze_yoyo(messages):
-    if not messages: return {"hot_discussions":[],"user_sentiment":"","pain_points":[],"highlights":[],"notable_quotes":[],"emerging_topics":"","keyword_cloud":[],"monthly_summary":"","mochi_mentions":"","mochi_feedback":""}
+    if not messages: return {"hot_discussions":[],"user_sentiment":"","pain_points":[],"highlights":[],"notable_quotes":[],"emerging_topics":"","keyword_cloud":[],"monthly_summary":"","mochi_mentions":"无","mochi_feedback":"无"}
     text="\n".join(f"{i+1}. {m}" for i,m in enumerate(messages[:80]))
     prompt=f"""你是游戏创作者社群（Yoyo Creative Studio）的运营分析师。仔细阅读以下本月 Discord 聊天记录。
 
-社群背景：这是一个游戏 UGC 创作者社群，Mochi（摸鱼小助手）是社群的运营助理 bot，负责积分统计、投稿管理、新人欢迎等。
+社群背景：Yoyo Creative Studio 游戏 UGC 创作者社群。Mochi（摸鱼小助手）是运营助理 bot，负责积分统计、投稿管理、新人欢迎。对接运营人是 Mochi。
 
-请特别关注：
-1. 创作者们在聊什么、投稿什么、有什么困难
-2. 对积分规则、投稿流程、奖励兑换的讨论
-3. **重点：查找所有提到 Mochi、Mochi小助手、摸鱼、助理、bot、assistant 的讨论**，分析创作者对 Mochi 的评价、吐槽、建议
-4. 新人 onboarding 体验、老创作者流失迹象
+请深度分析：
+
+1. **热议话题深层解读**：本月创作者在聊什么具体内容？有什么共识或争议？每个话题对社群意味着什么？
+2. **创作者痛点**：具体抱怨什么游戏机制/流程/体验？不只是说"积分规则不清楚"，要说清楚哪里不清楚、谁在困惑、影响面多大。
+3. **积分/投稿/奖励讨论**：有人反映积分统计不准吗？投稿流程是否顺畅？兑换奖励体验如何？
+4. **新人体验与老创作者动态**：新人遇到什么困难？有没有老创作者沉默或流失的迹象？新人留存怎么样？
+5. **社群氛围**：互助行为有哪些？有没有负面情绪扩散？创作者之间关系怎么样？
+6. **Mochi 专项**：有没有人提到 Mochi 助手、摸鱼、bot？评价好不好？有没有功能吐槽或具体的改进建议？
+7. **运营洞察**：Mochi 运营这个月最该关注什么？有什么风险信号或机会？
+
+要求：每条分析具体、有细节、有判断。不只是总结表面内容，要挖掘背后的含义。
 
 返回纯JSON（不要markdown代码块，不要省略）：
 {{"hot_discussions":[{{"theme":"15字主题","detail":"100字以上：聊什么、不同观点、谁主导","buzz":"🔥高/📊中/💬一般"}}],"user_sentiment":"50字：正/负面占比%、趋势","pain_points":["每条50字：具体抱怨、影响"],"highlights":["每条30字：有趣事件"],"notable_quotes":["至少6条英文原文"],"emerging_topics":"新趋势","keyword_cloud":["10个高频词"],"monthly_summary":"80字：本月总结+运营建议","mochi_mentions":"分析：创作者对Mochi助手的评价、吐槽、建议（如没有提到则写'本月暂无Mochi相关讨论'）","mochi_feedback":"如有人提出Mochi功能建议/吐槽，摘录原话，否则写'无'}}
@@ -158,8 +164,8 @@ def arkanalyze_yoyo(messages):
                         raw=c.get("text","").strip()
                         for fence in ["```json","```"]: raw=raw.replace(fence,"")
                         return json.loads(raw)
-                    except: return {"hot_discussions":[],"user_sentiment":c.get("text","")[:200],"pain_points":[],"highlights":[],"notable_quotes":[],"emerging_topics":"","keyword_cloud":[],"monthly_summary":"","mochi_mentions":"","mochi_feedback":""}
-    return {"hot_discussions":[],"user_sentiment":"分析失败","pain_points":[],"highlights":[],"notable_quotes":[],"emerging_topics":"","keyword_cloud":[],"monthly_summary":"","mochi_mentions":"","mochi_feedback":""}
+                    except: return {"hot_discussions":[],"user_sentiment":c.get("text","")[:200],"pain_points":[],"highlights":[],"notable_quotes":[],"emerging_topics":"","keyword_cloud":[],"monthly_summary":"","mochi_mentions":"无","mochi_feedback":"无"}
+    return {"hot_discussions":[],"user_sentiment":"分析失败","pain_points":[],"highlights":[],"notable_quotes":[],"emerging_topics":"","keyword_cloud":[],"monthly_summary":"","mochi_mentions":"无","mochi_feedback":"无"}
 
 def main():
     if not TOKEN:
@@ -564,7 +570,7 @@ body{{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,'Inter','Segoe 
 
 </div></body></html>'''
 
-    with open("index.html", "w") as f:
+    with open("monthly.html", "w") as f:
         f.write(html)
     print("✅ HTML 已生成")
 
@@ -583,7 +589,8 @@ body{{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,'Inter','Segoe 
             topics = [d.get('theme','') for d in analysis.get('hot_discussions',[])]
             mochi = analysis.get('mochi_mentions','')
             feishu_text += f"\n\n🤖 **LLM 舆情分析**\n🔥 热议：{'、'.join(topics[:3])}\n💬 情绪：{sent[:100]}\n"
-            if mochi and '暂无' not in mochi:
+            skip_m = ["暂无","未出现","未提及","没有提到","没有发现","未发现","无相关"]
+            if mochi and not any(w in mochi for w in skip_m):
                 feishu_text += f"\n🤖 Mochi反馈：{mochi[:120]}\n"
 
         payload = json.dumps({
@@ -592,7 +599,7 @@ body{{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,'Inter','Segoe 
                 "header": {"title": {"content": f"📊 Yoyo 月报 · {month_cn}", "tag": "plain_text"}, "template": "blue"},
                 "elements": [
                     {"tag": "div", "text": {"content": feishu_text, "tag": "lark_md"}},
-                    {"tag": "action", "actions": [{"tag": "button", "text": {"content": "📊 查看完整月报", "tag": "plain_text"}, "url": "https://jiashi65.github.io/yoyo-community-report/", "type": "primary"}]}
+                    {"tag": "action", "actions": [{"tag": "button", "text": {"content": "📊 查看完整月报", "tag": "plain_text"}, "url": "https://jiashi65.github.io/yoyo-community-report/monthly.html", "type": "primary"}]}
                 ]
             }
         }).encode()
