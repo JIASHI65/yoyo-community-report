@@ -412,7 +412,7 @@ body{{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,'Inter','Segoe 
 
 </div></body></html>'''
 
-    with open("index.html","w") as f:
+    with open("weekly.html","w") as f:
         f.write(html)
     print("✅ HTML 已生成")
 
@@ -460,7 +460,7 @@ body{{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,'Inter','Segoe 
                 "header":{"title":{"content":f"📊 Yoyo KOC 周报 · {week_label}","tag":"plain_text"},"template":"blue"},
                 "elements":[
                     {"tag":"div","text":{"content":text,"tag":"lark_md"}},
-                    {"tag":"action","actions":[{"tag":"button","text":{"content":"🌐 查看完整周报","tag":"plain_text"},"url":"https://jiashi65.github.io/yoyo-community-report/","type":"primary"}]},
+                    {"tag":"action","actions":[{"tag":"button","text":{"content":"🌐 查看完整周报","tag":"plain_text"},"url":"https://jiashi65.github.io/yoyo-community-report/weekly.html","type":"primary"}]},
                     {"tag":"note","elements":[{"tag":"plain_text","content":"🤖 Mochi Bot · LLM分析 by ARK DeepSeek · 每周一更新"}]}
                 ]
             }
