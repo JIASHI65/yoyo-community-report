@@ -121,13 +121,29 @@ def fetch_samples(channel_id, month_start, max_samples=60):
                     if ct and len(ct) > 3:
                         uname = author.get("username", "?")
                         samples.append(f"[{uname}]: {ct}")
-                        if len(samples) >= max_samples: return samples
-            else: return samples
+            else: return smart_sample(samples, max_samples)
         before = msgs[-1]["id"]
-    return samples
+    return smart_sample(samples, max_samples)
+
+def score_message(content):
+    score = len(content)
+    score += content.count("?") * 10
+    score += content.count("http") * 15
+    score += content.count("@") * 5
+    if 80 < len(content) < 300:
+        score *= 1.2
+    return int(score)
+
+def smart_sample(samples, n=60):
+    if len(samples) <= n:
+        return samples
+    scored = [(score_message(s), s) for s in samples]
+    scored.sort(key=lambda x: -x[0])
+    return [s for _, s in scored[:n]]
 
 def arkanalyze_yoyo(messages):
-    if not messages: return {"hot_discussions":[],"user_sentiment":"","pain_points":[],"highlights":[],"notable_quotes":[],"emerging_topics":"","keyword_cloud":[],"monthly_summary":"","mochi_mentions":"无","mochi_feedback":"无"}
+    if not messages: return {"hot_discussions":[],"user_sentiment":"","pain_points":[],"highlights":[],"notable_quotes":[],"emerging_topics":"","content_categories":[{{"category":"分类名(如作品分享/问题咨询/正向反馈/闲聊/游戏设计讨论)","pct":整数百分比}}],
+    "content_categories":[],"keyword_cloud":[],"monthly_summary":"","mochi_mentions":"无","mochi_feedback":"无"}
     text="\n".join(f"{i+1}. {m}" for i,m in enumerate(messages[:80]))
     prompt=f"""你是游戏创作者社群（Yoyo Creative Studio）的运营分析师。仔细阅读以下本月 Discord 聊天记录。
 
@@ -164,8 +180,8 @@ def arkanalyze_yoyo(messages):
                         raw=c.get("text","").strip()
                         for fence in ["```json","```"]: raw=raw.replace(fence,"")
                         return json.loads(raw)
-                    except: return {"hot_discussions":[],"user_sentiment":c.get("text","")[:200],"pain_points":[],"highlights":[],"notable_quotes":[],"emerging_topics":"","keyword_cloud":[],"monthly_summary":"","mochi_mentions":"无","mochi_feedback":"无"}
-    return {"hot_discussions":[],"user_sentiment":"分析失败","pain_points":[],"highlights":[],"notable_quotes":[],"emerging_topics":"","keyword_cloud":[],"monthly_summary":"","mochi_mentions":"无","mochi_feedback":"无"}
+                    except: return {"hot_discussions":[],"user_sentiment":c.get("text","")[:200],"pain_points":[],"highlights":[],"notable_quotes":[],"emerging_topics":"","content_categories":[],"keyword_cloud":[],"monthly_summary":"","mochi_mentions":"无","mochi_feedback":"无"}
+    return {"hot_discussions":[],"user_sentiment":"分析失败","pain_points":[],"highlights":[],"notable_quotes":[],"emerging_topics":"","content_categories":[],"keyword_cloud":[],"monthly_summary":"","mochi_mentions":"无","mochi_feedback":"无"}
 
 def main():
     if not TOKEN:
@@ -605,7 +621,7 @@ body{{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,'Inter','Segoe 
     html += f'''</div>
 
 <div class="section">
-  <div class="section-title"><span class="icon">🍩</span> 内容分类占比（估算）</div>
+  <div class="section-title"><span class="icon">🍩</span> 内容分类占比 · LLM 自动分析</div>
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px">{cat_html}</div>
   <p style="text-align:center;color:#5a6480;font-size:10px;margin-top:8px">💡 精确内容分类需引入 LLM 自动标注，目前为合理估算</p>
 </div>

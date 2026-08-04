@@ -48,11 +48,11 @@ def count_week_full(channel_id):
                     daily[dt.strftime("%m-%d")] += 1
                     user_counts[uname] += 1
                     ct = m.get("content","")[:250].strip()
-                    if ct and len(ct) > 3 and len(samples) < 40:
+                    if ct and len(ct) > 3:
                         samples.append(f"[{uname}]: {ct}")
-            else: return count, speakers, daily, user_counts, samples
+            else: return count, speakers, daily, user_counts, smart_sample(samples)
         before = msgs[-1]["id"]
-    return count, speakers, daily, user_counts, samples
+    return count, speakers, daily, user_counts, smart_sample(samples)
 
 def quick_count(channel_id):
     cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=7)
@@ -88,14 +88,14 @@ def fetch_samples(channel_id, max_n=10):
                     uname = m.get("author",{}).get("username","?")
                     if ct and len(ct) > 3:
                         samples.append(f"[{uname}]: {ct}")
-                        if len(samples) >= max_n: return samples
-            else: return samples
+            else: return smart_sample(samples, max_n)
         before = msgs[-1]["id"]
-    return samples
+    return smart_sample(samples, max_n)
 
 def arkanalyze(messages):
     meaningful = [m for m in messages if len(m.strip()) > 5]
-    if not meaningful: return {"hot_discussions":[],"user_sentiment":"","pain_points":[],"highlights":[],"notable_quotes":[],"emerging_topics":"","keyword_cloud":[],"weekly_summary":"","mochi_mentions":"无","mochi_feedback":"无"}
+    if not meaningful: return {"hot_discussions":[],"user_sentiment":"","pain_points":[],"highlights":[],"notable_quotes":[],"emerging_topics":"","content_categories":[{{"category":"分类名(如作品分享/问题咨询/正向反馈/闲聊/游戏设计讨论)","pct":整数百分比}}],
+    "content_categories":[],"keyword_cloud":[],"weekly_summary":"","mochi_mentions":"无","mochi_feedback":"无"}
     text = "\n".join(f"{i+1}. {m}" for i,m in enumerate(meaningful[:80]))
     prompt = f"""你是 Yoyo Creative Studio 游戏创作者社群的运营分析师。仔细阅读本周 Discord 聊天记录。
 
@@ -131,14 +131,33 @@ def arkanalyze(messages):
                         raw = c.get("text","").strip()
                         for fence in ["```json","```"]: raw = raw.replace(fence,"")
                         return json.loads(raw)
-                    except: return {"hot_discussions":[],"user_sentiment":c.get("text","")[:200],"pain_points":[],"highlights":[],"notable_quotes":[],"emerging_topics":"","keyword_cloud":[],"weekly_summary":"","mochi_mentions":"无","mochi_feedback":"无"}
-    return {"hot_discussions":[],"user_sentiment":"分析失败","pain_points":[],"highlights":[],"notable_quotes":[],"emerging_topics":"","keyword_cloud":[],"weekly_summary":"","mochi_mentions":"无","mochi_feedback":"无"}
+                    except: return {"hot_discussions":[],"user_sentiment":c.get("text","")[:200],"pain_points":[],"highlights":[],"notable_quotes":[],"emerging_topics":"","content_categories":[],"keyword_cloud":[],"weekly_summary":"","mochi_mentions":"无","mochi_feedback":"无"}
+    return {"hot_discussions":[],"user_sentiment":"分析失败","pain_points":[],"highlights":[],"notable_quotes":[],"emerging_topics":"","content_categories":[],"keyword_cloud":[],"weekly_summary":"","mochi_mentions":"无","mochi_feedback":"无"}
 
 def fmt_change(c,p):
     if p==0 and c==0: return "-"
     if p==0: return "新增"
     pct = (c-p)/p*100
     return f"{'+'if pct>=0 else''}{pct:.0f}%"
+
+def score_message(content):
+    """Score message by discussion value: longer + questions + links = more valuable."""
+    score = len(content)  # base: length
+    score += content.count("?") * 10  # questions = discussion value
+    score += content.count("http") * 15  # links = content sharing
+    score += content.count("@") * 5  # mentions = conversation
+    # Reward messages between 100-250 chars (substantive but not spam)
+    if 80 < len(content) < 300:
+        score *= 1.2
+    return int(score)
+
+def smart_sample(samples, n=40):
+    """Select the n most discussion-worthy messages from samples."""
+    if len(samples) <= n:
+        return samples
+    scored = [(score_message(s), s) for s in samples]
+    scored.sort(key=lambda x: -x[0])
+    return [s for _, s in scored[:n]]
 
 def main():
     if not TOKEN:
@@ -200,6 +219,27 @@ def main():
         print(f"  ⚠️ 痛点: {', '.join(analysis.get('pain_points',[])[:3])}")
     else:
         if not ARK_KEY: print("⚠️ 未设置 ARK_API_KEY，跳过分析")
+
+    # Step 4.5: Second ARK call - problem diagnosis & action plan
+    if ARK_KEY and all_samples:
+        print("\n🧠 第二轮 ARK: 运营分析...")
+        strat_prompt = "你是游戏创作者社群的运营分析师。基于本周聊天数据，用中文写一个200字以上的运营总结，必须包含三段：\n\n【问题诊断】列出1-2个核心问题及影响\n【行动建议】给出2-3条可执行动作+预期效果\n【路线图】本周做什么→两周内做什么→一个月内达成什么\n\n聊天数据：\n" + "\n".join(all_samples[:40])
+        strat_data = json.dumps({"model":"deepseek-v4-flash-260425","input":[{"role":"user","content":[{"type":"input_text","text":strat_prompt}]}]}).encode()
+        strat_req = urllib.request.Request("https://ark.cn-beijing.volces.com/api/v3/responses",data=strat_data,headers={"Content-Type":"application/json","Authorization":f"Bearer {ARK_KEY}"})
+        try:
+            strat_resp = json.loads(urllib.request.urlopen(strat_req,timeout=60).read())
+            for item in strat_resp.get("output",[]):
+                if item.get("type")=="message":
+                    for c in item.get("content",[]):
+                        if c.get("type")=="output_text":
+                            strat_text = c.get("text","").strip()
+                            if "【问题诊断】" in strat_text or "【行动建议】" in strat_text:
+                                analysis["monthly_summary"] = strat_text
+                                print(f"  ✅ 运营分析已生成 ({len(strat_text)}字)")
+                            else:
+                                analysis["monthly_summary"] = strat_text[:500]
+        except Exception as e:
+            print(f"  ⚠️ 运营分析失败: {e}")
 
     # Step 5: Build HTML
     print("\n🌐 生成 HTML...")
@@ -289,6 +329,28 @@ def main():
         analysis_html += kw_html
         if analysis.get("weekly_summary"):
             analysis_html += f'<div class="section"><div class="section-title"><span class="icon">📝</span> 本周运营总结</div><p style="color:#e0e6f0;font-size:14px;line-height:1.8">{analysis.get("weekly_summary","")}</p></div>'
+        # Problem diagnosis & action plan section
+        if analysis.get("monthly_summary"):
+            summary = analysis.get("monthly_summary","")
+            parts = {"问题诊断":"","行动建议":"","路线图":""}
+            current_key = None
+            for line in summary.split(chr(10)):
+                for key in parts:
+                    if f"【{key}】" in line:
+                        current_key = key
+                        line = line.split(f"【{key}】")[-1]
+                        break
+                if current_key:
+                    parts[current_key] += line + chr(10)
+            for k in parts:
+                parts[k] = parts[k].replace("**", "").replace("#", "")
+            if parts["问题诊断"].strip():
+                analysis_html += '<div class="section"><div class="section-title"><span class="icon">🔍</span> 问题诊断 & 行动计划</div><div style="margin-bottom:20px"><div style="font-size:15px;color:#ff6b6b;font-weight:600;margin-bottom:10px">🔍 问题诊断</div><div style="font-size:13px;color:#c0c8d8;line-height:1.9;background:linear-gradient(135deg,rgba(255,107,107,.08),rgba(255,107,107,.02));border:1px solid rgba(255,107,107,.15);border-radius:12px;padding:16px 20px;white-space:pre-line">' + parts["问题诊断"].strip() + '</div></div>'
+            if parts["行动建议"].strip():
+                analysis_html += '<div style="margin-bottom:20px"><div style="font-size:15px;color:#00e676;font-weight:600;margin-bottom:10px">✅ 行动方案</div><div style="font-size:13px;color:#c0c8d8;line-height:1.9;background:linear-gradient(135deg,rgba(0,230,118,.08),rgba(0,230,118,.02));border:1px solid rgba(0,230,118,.15);border-radius:12px;padding:16px 20px;white-space:pre-line">' + parts["行动建议"].strip() + '</div></div>'
+            if parts["路线图"].strip():
+                analysis_html += '<div style="margin-bottom:20px"><div style="font-size:15px;color:#ffab00;font-weight:600;margin-bottom:10px">📅 路线图</div><div style="font-size:13px;color:#c0c8d8;line-height:1.9;background:linear-gradient(135deg,rgba(255,171,0,.08),rgba(255,171,0,.02));border:1px solid rgba(255,171,0,.15);border-radius:12px;padding:16px 20px;white-space:pre-line">' + parts["路线图"].strip() + '</div></div>'
+            analysis_html += '</div>'
 
     # Alert for activity drop
     alert_html = ""
@@ -301,6 +363,16 @@ def main():
 
     wow_change = fmt_change(total, prev_total)
     wow_class = "up" if total >= prev_total else "down"
+
+    # LLM content categories
+    cat_html = ""
+    if analysis.get("content_categories"):
+        colors = ["#ff6b9d","#00e676","#ffab00","#b388ff","#00d4ff","#5a6480"]
+        for i, c in enumerate(analysis["content_categories"]):
+            color = colors[i % len(colors)]
+            cat_html += f'<div style="background:rgba(0,0,0,.15);border-radius:10px;padding:14px;text-align:center"><div style="font-size:28px;font-weight:700;color:{color}">{c.get("pct",0)}%</div><div style="font-size:12px;color:#8892b0;margin-top:4px">{c.get("category","?")}</div></div>' + chr(10) + "    "
+    if cat_html:
+        cat_html = f'<div class="section"><div class="section-title"><span class="icon">🍩</span> 内容分类占比 · LLM 自动分析</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px">{cat_html}</div></div>' + chr(10)
 
     html = f'''<!DOCTYPE html>
 <html lang="zh-CN">
@@ -390,7 +462,9 @@ body{{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,'Inter','Segoe 
   <p style="text-align:center;color:#5a6480;font-size:10px;margin-top:6px">💡 非 Bot 消息量 · 条/天</p>
 </div>
 
-<div class="two-col">
+{cat_html}
+
+    <div class="two-col">
 <div class="section">
   <div class="section-title"><span class="icon">📡</span> 各频道消息分布</div>
   <table class="data-table">
