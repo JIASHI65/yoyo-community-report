@@ -601,7 +601,7 @@ body{{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,'Inter','Segoe 
         payload = json.dumps({
             "msg_type": "interactive",
             "card": {
-                "header": {"title": {"content": f"📊 Yoyo 月报 · {month_cn}", "tag": "plain_text"}, "template": "blue"},
+                "header": {"title": {"content": f"📊 Yoyo Creative Studio 月报 · {month_cn}", "tag": "plain_text"}, "template": "blue"},
                 "elements": [
                     {"tag": "div", "text": {"content": feishu_text, "tag": "lark_md"}},
                     {"tag": "action", "actions": [{"tag": "button", "text": {"content": "📊 查看完整月报", "tag": "plain_text"}, "url": "https://jiashi65.github.io/yoyo-community-report/monthly.html", "type": "primary"}]}

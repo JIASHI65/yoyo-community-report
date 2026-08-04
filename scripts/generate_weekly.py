@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Yoyo KOC Weekly Report: Discord data + ARK deep analysis + Mochi tracking."""
+"""Yoyo Creative Studio Weekly Report: Discord data + ARK deep analysis + Mochi tracking."""
 import json, os, datetime, urllib.request, collections, sys
 
 TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "")
@@ -147,7 +147,7 @@ def main():
     week_start = now - datetime.timedelta(days=7)
     week_label = f"{week_start.strftime('%m/%d')}-{now.strftime('%m/%d')}"
     week_key = now.strftime("W%U")
-    print(f"📊 Yoyo KOC 周报 · {week_label}")
+    print(f"📊 Yoyo Creative Studio 周报 · {week_label}")
 
     # Step 1: Main channel full data
     print("📡 采集 creators-exchange...")
@@ -305,7 +305,7 @@ def main():
     html = f'''<!DOCTYPE html>
 <html lang="zh-CN">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Yoyo KOC · 周报 {week_label}</title>
+<title>Yoyo Creative Studio · 周报 {week_label}</title>
 <style>
 *{{margin:0;padding:0;box-sizing:border-box}}
 body{{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,'Inter','Segoe UI',sans-serif;min-height:100vh}}
@@ -457,7 +457,7 @@ body{{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,'Inter','Segoe 
         payload = json.dumps({
             "msg_type":"interactive",
             "card":{
-                "header":{"title":{"content":f"📊 Yoyo KOC 周报 · {week_label}","tag":"plain_text"},"template":"blue"},
+                "header":{"title":{"content":f"📊 Yoyo Creative Studio 周报 · {week_label}","tag":"plain_text"},"template":"blue"},
                 "elements":[
                     {"tag":"div","text":{"content":text,"tag":"lark_md"}},
                     {"tag":"action","actions":[{"tag":"button","text":{"content":"🌐 查看完整周报","tag":"plain_text"},"url":"https://jiashi65.github.io/yoyo-community-report/weekly.html","type":"primary"}]},
