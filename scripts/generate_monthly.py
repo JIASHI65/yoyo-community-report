@@ -455,13 +455,16 @@ def main():
                         break
                 if current_key:
                     parts[current_key] += line + chr(10)
-            strategic_html = '<div class="section"><div class="section-title"><span class="icon">🧠</span> AI 战略分析 · 月度决策建议</div>'
+            strategic_html = '<div class="section"><div class="section-title"><span class="icon">🧠</span> 问题诊断 & 行动计划</div>'
+            # Strip markdown formatting from content
+            for k in parts:
+                parts[k] = parts[k].replace("**", "").replace("#", "")
             if parts["问题诊断"].strip():
-                strategic_html += '<div style="margin-bottom:16px"><div style="font-size:14px;color:#ff6b6b;font-weight:600;margin-bottom:8px">⚠️ 问题诊断</div><div style="font-size:13px;color:#e0e6f0;line-height:1.8;background:rgba(255,107,107,.06);border-left:3px solid rgba(255,107,107,.5);padding:12px 16px;border-radius:0 8px 8px 0;white-space:pre-line">' + parts["问题诊断"].strip() + '</div></div>'
+                strategic_html += '<div style="margin-bottom:16px"><div style="font-size:14px;color:#ff6b6b;font-weight:600;margin-bottom:8px">🔍 问题诊断</div><div style="font-size:13px;color:#e0e6f0;line-height:1.8;background:rgba(255,107,107,.06);border-left:3px solid rgba(255,107,107,.5);padding:12px 16px;border-radius:0 8px 8px 0;white-space:pre-line">' + parts["问题诊断"].strip() + '</div></div>'
             if parts["行动建议"].strip():
-                strategic_html += '<div style="margin-bottom:16px"><div style="font-size:14px;color:#00e676;font-weight:600;margin-bottom:8px">💡 行动建议</div><div style="font-size:13px;color:#e0e6f0;line-height:1.8;background:rgba(0,230,118,.06);border-left:3px solid rgba(0,230,118,.5);padding:12px 16px;border-radius:0 8px 8px 0;white-space:pre-line">' + parts["行动建议"].strip() + '</div></div>'
+                strategic_html += '<div style="margin-bottom:16px"><div style="font-size:14px;color:#00e676;font-weight:600;margin-bottom:8px">✅ 行动方案</div><div style="font-size:13px;color:#e0e6f0;line-height:1.8;background:rgba(0,230,118,.06);border-left:3px solid rgba(0,230,118,.5);padding:12px 16px;border-radius:0 8px 8px 0;white-space:pre-line">' + parts["行动建议"].strip() + '</div></div>'
             if parts["路线图"].strip():
-                strategic_html += '<div style="margin-bottom:16px"><div style="font-size:14px;color:#ffab00;font-weight:600;margin-bottom:8px">🗺️ 优先级路线图</div><div style="font-size:13px;color:#e0e6f0;line-height:1.8;background:rgba(255,171,0,.06);border-left:3px solid rgba(255,171,0,.5);padding:12px 16px;border-radius:0 8px 8px 0;white-space:pre-line">' + parts["路线图"].strip() + '</div></div>'
+                strategic_html += '<div style="margin-bottom:16px"><div style="font-size:14px;color:#ffab00;font-weight:600;margin-bottom:8px">📅 路线图</div><div style="font-size:13px;color:#e0e6f0;line-height:1.8;background:rgba(255,171,0,.06);border-left:3px solid rgba(255,171,0,.5);padding:12px 16px;border-radius:0 8px 8px 0;white-space:pre-line">' + parts["路线图"].strip() + '</div></div>'
             strategic_html += '</div>'
             analysis_html += strategic_html
 
