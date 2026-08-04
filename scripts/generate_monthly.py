@@ -507,6 +507,7 @@ body{{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,'Inter','Segoe 
 <body><div class="container">
 
 <div class="header">
+  <div style="display:inline-block;background:#7b2ff7;color:#fff;padding:6px 20px;border-radius:20px;font-size:14px;font-weight:700;letter-spacing:2px;margin-bottom:12px">📊 月 报</div>
   <div class="logo">📊 Monthly Report · {month_en}</div>
   <h1>Yoyo Creative Studio</h1>
   <div class="subtitle">{comparison_header} · {prev_date_info} 生成</div>

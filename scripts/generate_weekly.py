@@ -364,6 +364,7 @@ body{{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,'Inter','Segoe 
 <body><div class="container">
 
 <div class="header">
+  <div style="display:inline-block;background:#00d4ff;color:#0a0e17;padding:6px 20px;border-radius:20px;font-size:14px;font-weight:700;letter-spacing:2px;margin-bottom:12px">📊 周 报</div>
   <div class="logo">📊 Weekly Report</div>
   <h1>Yoyo Creative Studio</h1>
   <div class="subtitle">{week_label} · KOC 创作者社群周报 · {now.strftime('%Y/%m/%d')} 生成</div>
