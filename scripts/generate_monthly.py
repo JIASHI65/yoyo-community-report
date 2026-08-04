@@ -244,8 +244,8 @@ def main():
 
     # Second ARK call: strategic decision analysis (separate, simpler prompt)
     if ARK_KEY and all_samples:
-        print("\n🧠 第二轮 ARK: 战略决策分析...")
-        strat_prompt = "你是游戏创作者社群的运营策略分析师。基于本月聊天数据，用中文写一个200字以上的月度战略总结，必须包含三段：\n\n【问题诊断】列出1-2个核心问题及影响\n【行动建议】给出2-3条可执行动作+预期效果\n【路线图】本周做什么→两周内做什么→一个月内达成什么\n\n聊天数据：\n" + "\n".join(all_samples[:40])
+        print("\n🧠 第二轮 ARK: 运营决策分析...")
+        strat_prompt = "你是游戏创作者社群的运营分析师。基于本月聊天数据，用中文写一个200字以上的月度运营总结，必须包含三段：\n\n【问题诊断】列出1-2个核心问题及影响\n【行动建议】给出2-3条可执行动作+预期效果\n【路线图】本周做什么→两周内做什么→一个月内达成什么\n\n聊天数据：\n" + "\n".join(all_samples[:40])
         strat_data = json.dumps({"model":"deepseek-v4-flash-260425","input":[{"role":"user","content":[{"type":"input_text","text":strat_prompt}]}]}).encode()
         strat_req = urllib.request.Request("https://ark.cn-beijing.volces.com/api/v3/responses",data=strat_data,headers={"Content-Type":"application/json","Authorization":f"Bearer {ARK_KEY}"})
         try:
@@ -258,12 +258,12 @@ def main():
                             # Extract content between ** markers or use as-is
                             if "【问题诊断】" in strat_text or "【行动建议】" in strat_text:
                                 analysis["monthly_summary"] = strat_text
-                                print(f"  ✅ 战略分析已生成 ({len(strat_text)}字)")
+                                print(f"  ✅ 运营分析已生成 ({len(strat_text)}字)")
                             else:
                                 print(f"  ⚠️ 格式不符，尝试备用解析...")
                                 analysis["monthly_summary"] = strat_text[:500]
         except Exception as e:
-            print(f"  ⚠️ 战略分析失败: {e}")
+            print(f"  ⚠️ 运营分析失败: {e}")
     # Save current month for next time
     weekly_curr = collections.Counter()
     for day_str, val in daily.items():
