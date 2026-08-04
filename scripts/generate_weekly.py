@@ -114,7 +114,7 @@ def arkanalyze(messages):
 不要泛泛而谈。每条分析都要有具体细节、具体人名（如果有）、具体场景。不只是统计，要有判断和洞察。
 
 返回纯JSON（不要markdown代码块）：
-{{"hot_discussions":[{{"theme":"12字主题","detail":"120字以上深度分析：聊什么、谁在说、不同观点、潜在影响","buzz":"🔥高/📊中/💬一般","participants":"几个人参与"}}],"user_sentiment":"80字：正/负面各占%、具体情绪关键词、与上周相比的变化","pain_points":["每条80字：具体抱怨什么游戏机制/流程、影响多大、有没有解决方案被提出"],"highlights":["每条40字：有趣事件、谁参与、社区反响"],"notable_quotes":["至少6条英文原文、选最有代表性的"],"emerging_topics":"40字：新趋势","keyword_cloud":["12个高频关键词"],"weekly_summary":"100字：本周一句话总结+值得关注的信号+建议运营动作","mochi_mentions":"60字：创作者对Mochi助手的评价、吐槽、建议（如没提到就说暂无）","mochi_feedback":"如有具体吐槽/建议摘录原话，否则写无"}}
+{{"hot_discussions":[{{"theme":"12字主题","detail":"120字以上深度分析：聊什么、谁在说、不同观点、潜在影响","buzz":"🔥高/📊中/💬一般","participants":"几个人参与"}}],"user_sentiment":"80字：正/负面各占%、具体情绪关键词、与上周相比的变化","pain_points":["每条80字：具体抱怨什么游戏机制/流程、影响多大、有没有解决方案被提出"],"highlights":["每条40字：有趣事件、谁参与、社区反响"],"notable_quotes":["至少6条英文原文、选最有代表性的"],"emerging_topics":"40字：新趋势","keyword_cloud":["12个高频关键词"],"weekly_summary":"100字：本周一句话总结+值得关注的信号+建议运营动作","mochi_mentions":"如果有人讨论Mochi/Bot/摸鱼：具体评价和吐槽。如果没人讨论直接返回空字符串\"\"","mochi_feedback":"如有具体吐槽/建议摘录原话，否则返回空字符串\"\""}}
 
 要求：具体、有数据感、运营视角。中文分析，quotes保留英文。
 
@@ -441,9 +441,13 @@ body{{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,'Inter','Segoe 
 
         if analysis:
             topics_for_feishu = [d.get('theme','') for d in analysis.get('hot_discussions',[])]
-            text += f"\n\n🤖 **LLM 深度分析**\n🔥 热议：{'、'.join(topics_for_feishu[:3])}\n💬 情绪：{analysis.get('user_sentiment','')[:120]}"
+            pains = [p[:40] for p in analysis.get('pain_points',[])][:2]
+            highlights = [h[:30] for h in analysis.get('highlights',[])][:2]
+            text += f"\n\n🤖 **LLM 深度分析**\n🔥 热议：{'、'.join(topics_for_feishu[:3])}\n💬 情绪：{analysis.get('user_sentiment','')[:100]}"
+            if pains: text += f"\n⚠️ 痛点：{'；'.join(pains)}"
+            if highlights: text += f"\n🌟 亮点：{'；'.join(highlights)}"
             mochi = analysis.get('mochi_mentions','')
-            skip_words2 = ["暂无","未出现","未提及","没有提到","没有发现","未发现","无相关"]
+            skip_words2 = ["暂无","未出现","未提及","没有提到","没有发现","未发现","无相关","未参与","没有相关","无相关讨论","未被提及","不涉及","没有讨论","0条","无讨论"]
             if mochi and not any(w in mochi for w in skip_words2):
                 text += f"\n🤖 Mochi反馈：{mochi[:100]}"
 

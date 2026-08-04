@@ -146,7 +146,7 @@ def arkanalyze_yoyo(messages):
 要求：每条分析具体、有细节、有判断。不只是总结表面内容，要挖掘背后的含义。
 
 返回纯JSON（不要markdown代码块，不要省略）：
-{{"hot_discussions":[{{"theme":"15字主题","detail":"100字以上：聊什么、不同观点、谁主导","buzz":"🔥高/📊中/💬一般"}}],"user_sentiment":"50字：正/负面占比%、趋势","pain_points":["每条50字：具体抱怨、影响"],"highlights":["每条30字：有趣事件"],"notable_quotes":["至少6条英文原文"],"emerging_topics":"新趋势","keyword_cloud":["10个高频词"],"monthly_summary":"80字：本月总结+运营建议","mochi_mentions":"分析：创作者对Mochi助手的评价、吐槽、建议（如没有提到则写'本月暂无Mochi相关讨论'）","mochi_feedback":"如有人提出Mochi功能建议/吐槽，摘录原话，否则写'无'}}
+{{"hot_discussions":[{{"theme":"15字主题","detail":"100字以上：聊什么、不同观点、谁主导","buzz":"🔥高/📊中/💬一般"}}],"user_sentiment":"50字：正/负面占比%、趋势","pain_points":["每条50字：具体抱怨、影响"],"highlights":["每条30字：有趣事件"],"notable_quotes":["至少6条英文原文"],"emerging_topics":"新趋势","keyword_cloud":["10个高频词"],"monthly_summary":"80字：本月总结+运营建议","mochi_mentions":"如果有人讨论Mochi/Bot/摸鱼：具体评价。如果没人讨论直接返回空字符串\"\"","mochi_feedback":"如有人提出Mochi功能建议/吐槽，摘录原话，否则写'无'}}
 
 要求：每条具体有信息量，不泛泛而谈。中文分析，quotes 保留英文原文。
 
@@ -587,11 +587,15 @@ body{{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,'Inter','Segoe 
         if analysis:
             sent = analysis.get('user_sentiment','')
             topics = [d.get('theme','') for d in analysis.get('hot_discussions',[])]
+            pains = [p[:50] for p in analysis.get('pain_points',[])][:2]
+            highlights = [h[:30] for h in analysis.get('highlights',[])][:2]
             mochi = analysis.get('mochi_mentions','')
-            feishu_text += f"\n\n🤖 **LLM 舆情分析**\n🔥 热议：{'、'.join(topics[:3])}\n💬 情绪：{sent[:100]}\n"
-            skip_m = ["暂无","未出现","未提及","没有提到","没有发现","未发现","无相关"]
+            feishu_text += f"\n\n🤖 **LLM 舆情分析**\n🔥 热议：{'、'.join(topics[:3])}\n💬 情绪：{sent[:100]}"
+            if pains: feishu_text += f"\n⚠️ 痛点：{'；'.join(pains)}"
+            if highlights: feishu_text += f"\n🌟 亮点：{'；'.join(highlights)}"
+            skip_m = ["暂无","未出现","未提及","没有提到","没有发现","未发现","无相关","未参与","没有相关","无相关讨论","未被提及","不涉及","没有讨论","0条","无讨论"]
             if mochi and not any(w in mochi for w in skip_m):
-                feishu_text += f"\n🤖 Mochi反馈：{mochi[:120]}\n"
+                feishu_text += f"\n🤖 Mochi反馈：{mochi[:120]}"
 
         payload = json.dumps({
             "msg_type": "interactive",
