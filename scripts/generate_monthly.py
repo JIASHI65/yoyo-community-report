@@ -146,7 +146,7 @@ def arkanalyze_yoyo(messages):
 要求：每条分析具体、有细节、有判断。不只是总结表面内容，要挖掘背后的含义。
 
 返回纯JSON（不要markdown代码块，不要省略）：
-{{"hot_discussions":[{{"theme":"15字主题","detail":"100字以上：聊什么、不同观点、谁主导","buzz":"🔥高/📊中/💬一般"}}],"user_sentiment":"50字：正/负面占比%、趋势","pain_points":["每条50字：具体抱怨、影响"],"highlights":["每条30字：有趣事件"],"notable_quotes":["至少6条英文原文"],"emerging_topics":"新趋势","keyword_cloud":["10个高频词"],"monthly_summary":"80字：本月总结+运营建议","mochi_mentions":"如果有人讨论Mochi/Bot/摸鱼：具体评价。如果没人讨论直接返回空字符串\"\"","mochi_feedback":"如有人提出Mochi功能建议/吐槽，摘录原话，否则写'无'}}
+{{"hot_discussions":[{{"theme":"15字主题","detail":"100字以上：聊什么、不同观点、谁主导","buzz":"🔥高/📊中/💬一般"}}],"user_sentiment":"50字：正/负面占比%、趋势","pain_points":["每条50字：具体抱怨、影响"],"highlights":["每条30字：有趣事件"],"notable_quotes":["至少6条英文原文"],"emerging_topics":"新趋势","keyword_cloud":["10个高频词"],"monthly_summary":"200字以上，必须包含三段：【问题诊断】列出1-2个核心问题；【行动建议】给出2-3条可执行动作+预期效果；【路线图】本周→两周内→一个月内","mochi_mentions":"如果有人讨论Mochi/Bot/摸鱼：具体评价。如果没人讨论直接返回空字符串\"\"","mochi_feedback":"如有人提出Mochi功能建议/吐槽，摘录原话，否则写'无'}}
 
 要求：每条具体有信息量，不泛泛而谈。中文分析，quotes 保留英文原文。
 
@@ -241,6 +241,29 @@ def main():
         analysis = {}
         if not ARK_KEY: print("⚠️ 未设置 ARK_API_KEY，跳过分析")
 
+
+    # Second ARK call: strategic decision analysis (separate, simpler prompt)
+    if ARK_KEY and all_samples:
+        print("\n🧠 第二轮 ARK: 战略决策分析...")
+        strat_prompt = "你是游戏创作者社群的运营策略分析师。基于本月聊天数据，用中文写一个200字以上的月度战略总结，必须包含三段：\n\n【问题诊断】列出1-2个核心问题及影响\n【行动建议】给出2-3条可执行动作+预期效果\n【路线图】本周做什么→两周内做什么→一个月内达成什么\n\n聊天数据：\n" + "\n".join(all_samples[:40])
+        strat_data = json.dumps({"model":"deepseek-v4-flash-260425","input":[{"role":"user","content":[{"type":"input_text","text":strat_prompt}]}]}).encode()
+        strat_req = urllib.request.Request("https://ark.cn-beijing.volces.com/api/v3/responses",data=strat_data,headers={"Content-Type":"application/json","Authorization":f"Bearer {ARK_KEY}"})
+        try:
+            strat_resp = json.loads(urllib.request.urlopen(strat_req,timeout=60).read())
+            for item in strat_resp.get("output",[]):
+                if item.get("type")=="message":
+                    for c in item.get("content",[]):
+                        if c.get("type")=="output_text":
+                            strat_text = c.get("text","").strip()
+                            # Extract content between ** markers or use as-is
+                            if "【问题诊断】" in strat_text or "【行动建议】" in strat_text:
+                                analysis["monthly_summary"] = strat_text
+                                print(f"  ✅ 战略分析已生成 ({len(strat_text)}字)")
+                            else:
+                                print(f"  ⚠️ 格式不符，尝试备用解析...")
+                                analysis["monthly_summary"] = strat_text[:500]
+        except Exception as e:
+            print(f"  ⚠️ 战略分析失败: {e}")
     # Save current month for next time
     weekly_curr = collections.Counter()
     for day_str, val in daily.items():
@@ -343,7 +366,7 @@ def main():
 
     # Build ARK analysis HTML blocks
     analysis_html = ""
-    if analysis:
+    if True:  # was: if analysis:
         disc_cards = ""
         buzz_bg = {"🔥高":"rgba(255,107,107,.1)","📊中":"rgba(255,171,0,.1)","💬一般":"rgba(100,100,255,.1)"}
         buzz_bd = {"🔥高":"rgba(255,107,107,.25)","📊中":"rgba(255,171,0,.25)","💬一般":"rgba(100,100,255,.15)"}
@@ -420,7 +443,27 @@ def main():
             analysis_html += f'<div class="section"><div class="section-title"><span class="icon">🤖</span> Mochi 小助手 · 创作者反馈</div><p style="color:#e0e6f0;font-size:14px;line-height:1.8">{mochi_ment}</p>{mochi_extra}</div>'
         analysis_html += kw_html
         if analysis.get("monthly_summary"):
-            analysis_html += f'<div class="section"><div class="section-title"><span class="icon">📝</span> 本月运营总结</div><p style="color:#e0e6f0;font-size:14px;line-height:1.8">{analysis.get("monthly_summary","")}</p></div>'
+            summary = analysis.get("monthly_summary","")
+            # Render structured summary with sections
+            parts = {"问题诊断":"","行动建议":"","路线图":""}
+            current_key = None
+            for line in summary.split(chr(10)):
+                for key in parts:
+                    if f"【{key}】" in line:
+                        current_key = key
+                        line = line.split(f"【{key}】")[-1]
+                        break
+                if current_key:
+                    parts[current_key] += line + chr(10)
+            strategic_html = '<div class="section"><div class="section-title"><span class="icon">🧠</span> AI 战略分析 · 月度决策建议</div>'
+            if parts["问题诊断"].strip():
+                strategic_html += '<div style="margin-bottom:16px"><div style="font-size:14px;color:#ff6b6b;font-weight:600;margin-bottom:8px">⚠️ 问题诊断</div><div style="font-size:13px;color:#e0e6f0;line-height:1.8;background:rgba(255,107,107,.06);border-left:3px solid rgba(255,107,107,.5);padding:12px 16px;border-radius:0 8px 8px 0;white-space:pre-line">' + parts["问题诊断"].strip() + '</div></div>'
+            if parts["行动建议"].strip():
+                strategic_html += '<div style="margin-bottom:16px"><div style="font-size:14px;color:#00e676;font-weight:600;margin-bottom:8px">💡 行动建议</div><div style="font-size:13px;color:#e0e6f0;line-height:1.8;background:rgba(0,230,118,.06);border-left:3px solid rgba(0,230,118,.5);padding:12px 16px;border-radius:0 8px 8px 0;white-space:pre-line">' + parts["行动建议"].strip() + '</div></div>'
+            if parts["路线图"].strip():
+                strategic_html += '<div style="margin-bottom:16px"><div style="font-size:14px;color:#ffab00;font-weight:600;margin-bottom:8px">🗺️ 优先级路线图</div><div style="font-size:13px;color:#e0e6f0;line-height:1.8;background:rgba(255,171,0,.06);border-left:3px solid rgba(255,171,0,.5);padding:12px 16px;border-radius:0 8px 8px 0;white-space:pre-line">' + parts["路线图"].strip() + '</div></div>'
+            strategic_html += '</div>'
+            analysis_html += strategic_html
 
     # Content category (estimated)
     cat_html = '''<div style="background:rgba(0,0,0,.15);border-radius:10px;padding:14px;text-align:center"><div style="font-size:28px;font-weight:700;color:#5a6480">50%</div><div style="font-size:12px;color:#8892b0;margin-top:4px">日常闲聊</div></div>
@@ -542,6 +585,7 @@ body{{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,'Inter','Segoe 
   </table>
 </div>
 
+{analysis_html}
 <div class="two-col">
 <div class="section">
   <div class="section-title"><span class="icon">🏆</span> {month_cn} TOP10 活跃创作者</div>
@@ -601,7 +645,7 @@ body{{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,'Inter','Segoe 
         payload = json.dumps({
             "msg_type": "interactive",
             "card": {
-                "header": {"title": {"content": f"📊 Yoyo Creative Studio 月报 · {month_cn}", "tag": "plain_text"}, "template": "blue"},
+                "header": {"title": {"content": f"📊 Yoyo 月报 · {month_cn}", "tag": "plain_text"}, "template": "blue"},
                 "elements": [
                     {"tag": "div", "text": {"content": feishu_text, "tag": "lark_md"}},
                     {"tag": "action", "actions": [{"tag": "button", "text": {"content": "📊 查看完整月报", "tag": "plain_text"}, "url": "https://jiashi65.github.io/yoyo-community-report/monthly.html", "type": "primary"}]}
