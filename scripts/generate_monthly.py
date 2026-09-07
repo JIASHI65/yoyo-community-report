@@ -146,7 +146,7 @@ def arkanalyze_yoyo(messages):
     text="\n".join(f"{i+1}. {m}" for i,m in enumerate(messages[:80]))
     prompt=f"""你是游戏创作者社群（Yoyo Creative Studio）的运营分析师。仔细阅读以下本月 Discord 聊天记录。
 
-社群背景：Yoyo Creative Studio 游戏 UGC 创作者社群。Mochi（摸鱼小助手）是运营助理 bot，负责积分统计、投稿管理、新人欢迎。对接运营人是 Mochi。
+社群背景：Yoyo Creative Studio 游戏 UGC 创作者社群。
 
 请深度分析：
 
@@ -155,13 +155,14 @@ def arkanalyze_yoyo(messages):
 3. **积分/投稿/奖励讨论**：有人反映积分统计不准吗？投稿流程是否顺畅？兑换奖励体验如何？
 4. **新人体验与老创作者动态**：新人遇到什么困难？有没有老创作者沉默或流失的迹象？新人留存怎么样？
 5. **社群氛围**：互助行为有哪些？有没有负面情绪扩散？创作者之间关系怎么样？
-6. **Mochi 专项**：有没有人提到 Mochi 助手、摸鱼、bot？评价好不好？有没有功能吐槽或具体的改进建议？
-7. **运营洞察**：Mochi 运营这个月最该关注什么？有什么风险信号或机会？
+6. **运营洞察**：运营团队这个月最该关注什么？有什么风险信号或机会？
+
+公开报告禁止出现对运营人员、Mochi、Yoyo Assistant 或机器人功能的评价、吐槽、归因与原话引用；相关信息不要输出到任何字段。
 
 要求：每条分析具体、有细节、有判断。不只是总结表面内容，要挖掘背后的含义。
 
 返回纯JSON（不要markdown代码块，不要省略）：
-{{"hot_discussions":[{{"theme":"15字主题","detail":"100字以上：聊什么、不同观点、谁主导","buzz":"🔥高/📊中/💬一般"}}],"user_sentiment":"50字：正/负面占比%、趋势","pain_points":["每条50字：具体抱怨、影响"],"highlights":["每条30字：有趣事件"],"notable_quotes":["至少6条英文原文"],"emerging_topics":"新趋势","keyword_cloud":["10个高频词"],"monthly_summary":"200字以上，必须包含三段：【问题诊断】列出1-2个核心问题；【行动建议】给出2-3条可执行动作+预期效果；【路线图】本周→两周内→一个月内","mochi_mentions":"如果有人讨论Mochi/Bot/摸鱼：具体评价。如果没人讨论直接返回空字符串\"\"","mochi_feedback":"如有人提出Mochi功能建议/吐槽，摘录原话，否则写'无'}}
+{{"hot_discussions":[{{"theme":"15字主题","detail":"100字以上：聊什么、不同观点、谁主导","buzz":"🔥高/📊中/💬一般"}}],"user_sentiment":"50字：正/负面占比%、趋势","pain_points":["每条50字：具体抱怨、影响"],"highlights":["每条30字：有趣事件"],"notable_quotes":["至少6条英文原文"],"emerging_topics":"新趋势","keyword_cloud":["10个高频词"],"monthly_summary":"200字以上，必须包含三段：【问题诊断】列出1-2个核心问题；【行动建议】给出2-3条可执行动作+预期效果；【路线图】本周→两周内→一个月内"}}
 
 要求：每条具体有信息量，不泛泛而谈。中文分析，quotes 保留英文原文。
 
@@ -181,6 +182,33 @@ def arkanalyze_yoyo(messages):
                         return json.loads(raw)
                     except: return {"hot_discussions":[],"user_sentiment":c.get("text","")[:200],"pain_points":[],"highlights":[],"notable_quotes":[],"emerging_topics":"","content_categories":[],"keyword_cloud":[],"monthly_summary":"","mochi_mentions":"无","mochi_feedback":"无"}
     return {"hot_discussions":[],"user_sentiment":"分析失败","pain_points":[],"highlights":[],"notable_quotes":[],"emerging_topics":"","content_categories":[],"keyword_cloud":[],"monthly_summary":"","mochi_mentions":"无","mochi_feedback":"无"}
+
+PUBLIC_BLOCK_TERMS = ("mochi", "摸鱼", "yoyo assistant", "助手", "机器人功能", "bot功能")
+
+def sanitize_public_analysis(analysis):
+    if not isinstance(analysis, dict):
+        return {}
+
+    def blocked(value):
+        text = json.dumps(value, ensure_ascii=False).lower()
+        return any(term in text for term in PUBLIC_BLOCK_TERMS)
+
+    for key in ("hot_discussions", "pain_points", "highlights", "notable_quotes"):
+        values = analysis.get(key, [])
+        if isinstance(values, list):
+            analysis[key] = [value for value in values if not blocked(value)]
+    for key in ("keyword_cloud", "content_categories"):
+        values = analysis.get(key, [])
+        if isinstance(values, list):
+            analysis[key] = [value for value in values if not blocked(value)]
+    for key in ("user_sentiment", "emerging_topics", "weekly_summary", "monthly_summary"):
+        value = analysis.get(key, "")
+        if isinstance(value, str) and blocked(value):
+            parts = value.replace("！", "！\n").replace("。", "。\n").splitlines()
+            analysis[key] = "".join(part for part in parts if not blocked(part)).strip()
+    analysis.pop("mochi_mentions", None)
+    analysis.pop("mochi_feedback", None)
+    return analysis
 
 def main():
     if not TOKEN:
@@ -250,11 +278,13 @@ def main():
         topics_list = [d.get('theme','') for d in analysis.get('hot_discussions',[])]
         print(f"  🔥 话题: {', '.join(topics_list[:5])}")
         print(f"  💬 情绪: {analysis.get('user_sentiment','?')[:80]}")
-        print(f"  🤖 Mochi讨论: {analysis.get('mochi_mentions','')[:80]}")
         print(f"  ⚠️ 痛点: {', '.join(analysis.get('pain_points',[])[:3])}")
     else:
         analysis = {}
-        if not ARK_KEY: print("⚠️ 未设置 ARK_API_KEY，跳过分析")
+        if not ARK_KEY:
+            print("⚠️ 未设置 ARK_API_KEY，跳过分析")
+
+    analysis = sanitize_public_analysis(analysis)
 
 
     # Second ARK call: strategic decision analysis (separate, simpler prompt)
@@ -279,6 +309,8 @@ def main():
                                 analysis["monthly_summary"] = strat_text[:500]
         except Exception as e:
             print(f"  ⚠️ 运营分析失败: {e}")
+
+    analysis = sanitize_public_analysis(analysis)
     # Save current month for next time
     weekly_curr = collections.Counter()
     for day_str, val in daily.items():
@@ -448,14 +480,6 @@ def main():
   {emerging_html}
 </div>
 '''
-        if analysis.get("mochi_mentions"):
-            mochi_extra = f'<div style="margin-top:12px;padding:10px;background:rgba(255,171,0,.05);border-radius:8px;font-size:12px;color:#ffab00">💬 具体评价：{analysis.get("mochi_feedback","")}</div>' if analysis.get("mochi_feedback") and analysis.get("mochi_feedback") != "无" else ""
-            mochi_ment = analysis.get("mochi_mentions","")
-            mochi_extra = ""
-            fb = analysis.get("mochi_feedback","")
-            if fb and fb != "无":
-                mochi_extra = f'<div style="margin-top:12px;padding:10px;background:rgba(255,171,0,.05);border-radius:8px;font-size:12px;color:#ffab00">💬 具体评价：{fb}</div>'
-            analysis_html += f'<div class="section"><div class="section-title"><span class="icon">🤖</span> Mochi 小助手 · 创作者反馈</div><p style="color:#e0e6f0;font-size:14px;line-height:1.8">{mochi_ment}</p>{mochi_extra}</div>'
         analysis_html += kw_html
         if analysis.get("monthly_summary"):
             summary = analysis.get("monthly_summary","")
@@ -652,13 +676,9 @@ body{{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,'Inter','Segoe 
             topics = [d.get('theme','') for d in analysis.get('hot_discussions',[])]
             pains = [p[:50] for p in analysis.get('pain_points',[])][:2]
             highlights = [h[:30] for h in analysis.get('highlights',[])][:2]
-            mochi = analysis.get('mochi_mentions','')
             feishu_text += f"\n\n🤖 **LLM 舆情分析**\n🔥 热议：{'、'.join(topics[:3])}\n💬 情绪：{sent[:100]}"
             if pains: feishu_text += f"\n⚠️ 痛点：{'；'.join(pains)}"
             if highlights: feishu_text += f"\n🌟 亮点：{'；'.join(highlights)}"
-            skip_m = ["暂无","未出现","未提及","没有提到","没有发现","未发现","无相关","未参与","没有相关","无相关讨论","未被提及","不涉及","没有讨论","0条","无讨论"]
-            if mochi and not any(w in mochi for w in skip_m):
-                feishu_text += f"\n🤖 Mochi反馈：{mochi[:120]}"
 
         payload = json.dumps({
             "msg_type": "interactive",
