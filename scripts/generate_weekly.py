@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 """Yoyo Creative Studio Weekly Report: Discord data + ARK deep analysis + Mochi tracking."""
-import json, os, datetime, urllib.request, collections, sys
+import json, os, datetime, urllib.request, urllib.parse, collections, sys
 
 TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "")
 ARK_KEY = os.environ.get("ARK_API_KEY", "")
 FEISHU = os.environ.get("FEISHU_WEEKLY_WEBHOOK", os.environ.get("FEISHU_WEBHOOK", ""))
-SUPABASE_URL = "https://rryzofimrehmkijkckrm.supabase.co"
-SUPABASE_KEY = "sb_publishable_oyewqnQ8AnitAOD94Qg0nA_v6Zqkr7r"
 CACHE_FILE = "weekly_cache.json"
 
 CHANNELS = {
@@ -21,9 +19,15 @@ CHANNELS = {
 }
 
 def fetch(channel_id, before=None):
-    data = json.dumps({"action":"list_messages","data":{"channel_id":channel_id,"limit":100,"before":before} if before else {"channel_id":channel_id,"limit":100},"token":TOKEN}).encode()
-    req = urllib.request.Request(f"{SUPABASE_URL}/functions/v1/discord-proxy",data=data,headers={"Content-Type":"application/json","Authorization":f"Bearer {SUPABASE_KEY}"})
-    return json.loads(urllib.request.urlopen(req,timeout=15).read())
+    params = {"limit": 100}
+    if before:
+        params["before"] = before
+    url = f"https://discord.com/api/v10/channels/{channel_id}/messages?{urllib.parse.urlencode(params)}"
+    req = urllib.request.Request(url, headers={
+        "Authorization": f"Bot {TOKEN}",
+        "User-Agent": "DiscordBot (https://github.com/JIASHI65/yoyo-community-report, 1.0)",
+    })
+    return json.loads(urllib.request.urlopen(req, timeout=30).read())
 
 def count_week_full(channel_id):
     """Count + daily breakdown + user ranking + samples."""
@@ -195,6 +199,8 @@ def main():
     active_chan = sum(1 for c in chan_data.values() if c > 0)
     daily_avg = total // 7
     print(f"\n📊 总计: {total}条 | 日均{daily_avg}条 | {active_chan}/{len(CHANNELS)}频道活跃")
+    if total == 0:
+        raise RuntimeError("Discord 采集结果为 0；停止生成、覆盖看板和飞书推送")
 
     # Step 3: Load cache for WoW comparison
     cache = {}

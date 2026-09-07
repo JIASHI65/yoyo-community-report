@@ -20,6 +20,7 @@ jobs:
       - name: Generate weekly report
         env:
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          ARK_API_KEY: ${{ secrets.ARK_API_KEY }}
           FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
         run: |
           python3 scripts/generate_weekly.py

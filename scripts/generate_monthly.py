@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 """Generate monthly community report with MoM comparison."""
-import json, os, datetime, urllib.request, sys, collections, math
+import json, os, datetime, urllib.request, urllib.parse, sys, collections, math
 ARK_KEY = os.environ.get("ARK_API_KEY", "")
 
-SUPABASE_URL = "https://rryzofimrehmkijkckrm.supabase.co"
-SUPABASE_KEY = "sb_publishable_oyewqnQ8AnitAOD94Qg0nA_v6Zqkr7r"
 TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "")
 FEISHU = os.environ.get("FEISHU_MONTHLY_WEBHOOK", "")
 CACHE_FILE = "monthly_cache.json"
@@ -22,14 +20,15 @@ ALL_CHANNELS = {
 }
 
 def fetch(channel_id, before=None):
-    data = json.dumps({
-        "action": "list_messages",
-        "data": {"channel_id": channel_id, "limit": 100, "before": before} if before else {"channel_id": channel_id, "limit": 100},
-        "token": TOKEN
-    }).encode()
-    req = urllib.request.Request(f"{SUPABASE_URL}/functions/v1/discord-proxy", data=data,
-        headers={"Content-Type": "application/json", "Authorization": f"Bearer {SUPABASE_KEY}"})
-    return json.loads(urllib.request.urlopen(req).read())
+    params = {"limit": 100}
+    if before:
+        params["before"] = before
+    url = f"https://discord.com/api/v10/channels/{channel_id}/messages?{urllib.parse.urlencode(params)}"
+    req = urllib.request.Request(url, headers={
+        "Authorization": f"Bot {TOKEN}",
+        "User-Agent": "DiscordBot (https://github.com/JIASHI65/yoyo-community-report, 1.0)",
+    })
+    return json.loads(urllib.request.urlopen(req, timeout=30).read())
 
 def count_all(channel_id, month_start):
     """Count messages, speakers, daily, user ranking from month_start onward. Returns (count, speakers, daily, user_counts, last_before_id)."""
@@ -222,7 +221,7 @@ def main():
 
     total = sum(channel_data.values())
     if total == 0:
-        print("❌ 数据为 0"); return
+        raise RuntimeError("Discord 采集结果为 0；停止生成、覆盖看板和飞书推送")
 
     # --- Previous month data (from cache or fetch) ---
     prev_main_count = prev_cache.get("main_count", 0)
