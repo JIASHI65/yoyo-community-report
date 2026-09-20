@@ -1,0 +1,44 @@
+{
+  "msg_type": "interactive",
+  "card": {
+    "header": {
+      "title": {
+        "content": "📊 Yoyo Creative Studio 周报 · 09/13-09/20",
+        "tag": "plain_text"
+      },
+      "template": "blue"
+    },
+    "elements": [
+      {
+        "tag": "div",
+        "text": {
+          "content": "📢 creators-exchange：**900** 条（👥 37人）\n🗣️ 全频道总计：**914** 条 · 日均 **130** 条\n🆕 新发言：23人 · 🔄 回流：14人\n\n🤖 **LLM 深度分析**\n🔥 热议：互助提升互动数、积分规则与平台差异、内容创作与作品分享\n💬 情绪：正面情绪占比约70%（感恩、兴奋、互相鼓励），负面情绪约10%（积分困惑、新账号难处、周边随机性遗憾），中性20%（技术讨论、分享作品）。具体关键词：thankful、excited、love、app\n⚠️ 痛点：新账号互动低：lifluw新建账号后发现帖子互动明显减少，即使内容相同。这导致她；积分计算不透明：meisaxoxo提出要制作Excel自动计算工具，暗示现有规则\n🌟 亮点：deadlykitten36连发5个emoji庆祝4个帖子达；kellygraham制作兑换教程视频，帮助成员找到输入奖励\n\n📡 **频道 TOP 5**：\n1. #creators-exchange: 900条\n2. #show-merch: 10条\n3. #show-pet: 3条\n4. #bulletin-board: 1条\n5. #refer-a-friend: 0条",
+          "tag": "lark_md"
+        }
+      },
+      {
+        "tag": "action",
+        "actions": [
+          {
+            "tag": "button",
+            "text": {
+              "content": "🌐 查看完整周报",
+              "tag": "plain_text"
+            },
+            "url": "https://jiashi65.github.io/yoyo-community-report/weekly.html",
+            "type": "primary"
+          }
+        ]
+      },
+      {
+        "tag": "note",
+        "elements": [
+          {
+            "tag": "plain_text",
+            "content": "🤖 Mochi Bot · LLM分析 by ARK DeepSeek · 每周一更新"
+          }
+        ]
+      }
+    ]
+  }
+}
