@@ -5,11 +5,6 @@ on:
     - cron: '0 4 * * 1'  # Every Monday 04:00 UTC
   workflow_dispatch:
     inputs:
-      publish_to_feishu:
-        description: '确认推送到飞书群（定时任务永远不会推送）'
-        required: true
-        default: false
-        type: boolean
       editorial_context:
         description: '你希望融入 LLM 深度分析的判断或信息（可选）'
         required: false
@@ -31,8 +26,6 @@ jobs:
         env:
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
           ARK_API_KEY: ${{ secrets.ARK_API_KEY }}
-          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
-          PUBLISH_TO_FEISHU: ${{ inputs.publish_to_feishu }}
           EDITORIAL_CONTEXT: ${{ inputs.editorial_context }}
         run: |
           python3 scripts/generate_weekly.py
@@ -41,5 +34,5 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add weekly.html index.html
+          git add weekly.html index.html weekly-draft.md weekly-feishu-payload.json
           git diff --staged --quiet || (git commit -m "weekly report auto-update" && git push)

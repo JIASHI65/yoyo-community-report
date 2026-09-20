@@ -4,8 +4,6 @@ import collections, datetime, json, os, sys, urllib.parse, urllib.request
 
 TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "")
 ARK_KEY = os.environ.get("ARK_API_KEY", "")
-FEISHU = os.environ.get("FEISHU_WEEKLY_WEBHOOK", os.environ.get("FEISHU_WEBHOOK", ""))
-PUBLISH_TO_FEISHU = os.environ.get("PUBLISH_TO_FEISHU", "").lower() == "true"
 EDITORIAL_CONTEXT = os.environ.get("EDITORIAL_CONTEXT", "").strip()
 CACHE_FILE = "weekly_cache.json"
 
@@ -549,47 +547,55 @@ body{{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,'Inter','Segoe 
     with open(CACHE_FILE,"w") as f: json.dump(cache, f, ensure_ascii=False)
     print("💾 缓存已保存")
 
-    # Step 7: Feishu
-    if PUBLISH_TO_FEISHU and FEISHU:
-        print("\n📤 推送飞书...")
-        top5 = ""
-        i = 0
-        for name in sorted(chan_data.keys(), key=lambda x: -chan_data[x])[:5]:
-            c = chan_data[name]; i += 1
-            top5 += f"\n{i}. #{name}: {c:,}条"
-        ns = len(new_speakers); rs = len(returning)
+    # Step 7: Build an exact Feishu draft. Publishing is a separate approved workflow.
+    top5 = ""
+    for index, name in enumerate(sorted(chan_data.keys(), key=lambda x: -chan_data[x])[:5], 1):
+        top5 += f"\n{index}. #{name}: {chan_data[name]:,}条"
+    ns = len(new_speakers)
+    rs = len(returning)
+    feishu_text = f"📢 creators-exchange：**{mc:,}** 条（👥 {mc_speakers}人）\n🗣️ 全频道总计：**{total:,}** 条 · 日均 **{daily_avg:,}** 条\n🆕 新发言：{ns}人 · 🔄 回流：{rs}人"
 
-        text = f"📢 creators-exchange：**{mc:,}** 条（👥 {mc_speakers}人）\n🗣️ 全频道总计：**{total:,}** 条 · 日均 **{daily_avg:,}** 条\n🆕 新发言：{ns}人 · 🔄 回流：{rs}人"
+    if analysis:
+        topics_for_feishu = [d.get("theme", "") for d in analysis.get("hot_discussions", [])]
+        pains = [p[:40] for p in analysis.get("pain_points", [])][:2]
+        highlights = [h[:30] for h in analysis.get("highlights", [])][:2]
+        feishu_text += f"\n\n🤖 **LLM 深度分析**\n🔥 热议：{'、'.join(topics_for_feishu[:3])}\n💬 情绪：{analysis.get('user_sentiment', '')[:100]}"
+        if pains:
+            feishu_text += f"\n⚠️ 痛点：{'；'.join(pains)}"
+        if highlights:
+            feishu_text += f"\n🌟 亮点：{'；'.join(highlights)}"
+    feishu_text += f"\n\n📡 **频道 TOP 5**：{top5}"
 
-        if analysis:
-            topics_for_feishu = [d.get('theme','') for d in analysis.get('hot_discussions',[])]
-            pains = [p[:40] for p in analysis.get('pain_points',[])][:2]
-            highlights = [h[:30] for h in analysis.get('highlights',[])][:2]
-            text += f"\n\n🤖 **LLM 深度分析**\n🔥 热议：{'、'.join(topics_for_feishu[:3])}\n💬 情绪：{analysis.get('user_sentiment','')[:100]}"
-            if pains: text += f"\n⚠️ 痛点：{'；'.join(pains)}"
-            if highlights: text += f"\n🌟 亮点：{'；'.join(highlights)}"
-        text += f"\n\n📡 **频道 TOP 5**：{top5}"
-
-        payload = json.dumps({
-            "msg_type":"interactive",
-            "card":{
-                "header":{"title":{"content":f"📊 Yoyo Creative Studio 周报 · {week_label}","tag":"plain_text"},"template":"blue"},
-                "elements":[
-                    {"tag":"div","text":{"content":text,"tag":"lark_md"}},
-                    {"tag":"action","actions":[{"tag":"button","text":{"content":"🌐 查看完整周报","tag":"plain_text"},"url":"https://jiashi65.github.io/yoyo-community-report/weekly.html","type":"primary"}]},
-                    {"tag":"note","elements":[{"tag":"plain_text","content":"🤖 Mochi Bot · LLM分析 by ARK DeepSeek · 每周一更新"}]}
-                ]
-            }
-        }).encode()
-        try:
-            urllib.request.urlopen(urllib.request.Request(FEISHU, data=payload, headers={"Content-Type":"application/json"}))
-            print("✅ 已推送到飞书！")
-        except Exception as e:
-            print(f"⚠️ 推送失败: {e}")
-    elif PUBLISH_TO_FEISHU:
-        print("⚠️ 已确认推送，但未设置飞书 Webhook，跳过推送")
-    else:
-        print("ℹ️ 草稿模式：已更新 BI 看板，未推送飞书")
+    payload = {
+        "msg_type": "interactive",
+        "card": {
+            "header": {
+                "title": {"content": f"📊 Yoyo Creative Studio 周报 · {week_label}", "tag": "plain_text"},
+                "template": "blue",
+            },
+            "elements": [
+                {"tag": "div", "text": {"content": feishu_text, "tag": "lark_md"}},
+                {
+                    "tag": "action",
+                    "actions": [{
+                        "tag": "button",
+                        "text": {"content": "🌐 查看完整周报", "tag": "plain_text"},
+                        "url": "https://jiashi65.github.io/yoyo-community-report/weekly.html",
+                        "type": "primary",
+                    }],
+                },
+                {
+                    "tag": "note",
+                    "elements": [{"tag": "plain_text", "content": "🤖 Mochi Bot · LLM分析 by ARK DeepSeek · 每周一更新"}],
+                },
+            ],
+        },
+    }
+    with open("weekly-feishu-payload.json", "w") as payload_file:
+        json.dump(payload, payload_file, ensure_ascii=False, indent=2)
+    with open("weekly-draft.md", "w") as draft_file:
+        draft_file.write(f"# 📊 Yoyo Creative Studio 周报 · {week_label}\n\n{feishu_text}\n\n🌐 查看完整周报：https://jiashi65.github.io/yoyo-community-report/weekly.html\n")
+    print("📝 飞书文案草稿已生成，等待人工确认；本次未推送")
 
     print(f"\n✅ 周报完成！总计 {total:,} 条消息 · {mc_speakers} 人参与 · {active_chan} 个频道活跃")
 
