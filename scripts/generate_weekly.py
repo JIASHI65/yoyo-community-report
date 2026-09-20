@@ -557,7 +557,7 @@ body{{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,'Inter','Segoe 
 
     if analysis:
         topics_for_feishu = [d.get("theme", "") for d in analysis.get("hot_discussions", [])]
-        pains = [p[:40] for p in analysis.get("pain_points", [])][:2]
+        pains = [p[:220] for p in analysis.get("pain_points", [])][:2]
         highlights = [h[:30] for h in analysis.get("highlights", [])][:2]
         feishu_text += f"\n\n🤖 **LLM 深度分析**\n🔥 热议：{'、'.join(topics_for_feishu[:3])}\n💬 情绪：{analysis.get('user_sentiment', '')[:100]}"
         if pains:
