@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Yoyo Creative Studio Weekly Report: Discord data + ARK deep analysis + Mochi tracking."""
-import json, os, datetime, urllib.request, urllib.parse, collections, sys
+import collections, datetime, html, json, os, sys, urllib.parse, urllib.request
 
 TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "")
 ARK_KEY = os.environ.get("ARK_API_KEY", "")
 FEISHU = os.environ.get("FEISHU_WEEKLY_WEBHOOK", os.environ.get("FEISHU_WEBHOOK", ""))
+PUBLISH_TO_FEISHU = os.environ.get("PUBLISH_TO_FEISHU", "").lower() == "true"
+OPERATOR_NOTE = os.environ.get("OPERATOR_NOTE", "").strip()
 CACHE_FILE = "weekly_cache.json"
 
 CHANNELS = {
@@ -401,7 +403,16 @@ def main():
     if cat_html:
         cat_html = f'<div class="section"><div class="section-title"><span class="icon">🍩</span> 内容分类占比 · LLM 自动分析</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px">{cat_html}</div></div>' + chr(10)
 
-    html = f'''<!DOCTYPE html>
+    operator_note_html = ""
+    if OPERATOR_NOTE:
+        safe_note = html.escape(OPERATOR_NOTE).replace("\n", "<br>")
+        operator_note_html = f'''
+<div class="section" style="border-color:rgba(255,171,0,.25);background:linear-gradient(135deg,rgba(255,171,0,.08),rgba(15,20,40,.5))">
+  <div class="section-title" style="color:#ffab00"><span class="icon">📌</span> 运营观察</div>
+  <p style="color:#e0e6f0;font-size:14px;line-height:1.8">{safe_note}</p>
+</div>'''
+
+    page_html = f'''<!DOCTYPE html>
 <html lang="zh-CN">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Yoyo Creative Studio · 周报 {week_label}</title>
@@ -483,6 +494,8 @@ body{{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,'Inter','Segoe 
 
 {analysis_html}
 
+{operator_note_html}
+
 <div class="section">
   <div class="section-title"><span class="icon">📈</span> creators-exchange 日活跃趋势</div>
   <div class="daily-chart">{daily_bars}</div>
@@ -514,7 +527,7 @@ body{{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,'Inter','Segoe 
 </div></body></html>'''
 
     with open("weekly.html","w") as f:
-        f.write(html)
+        f.write(page_html)
     print("✅ HTML 已生成")
 
     # Step 6: Save cache
@@ -530,7 +543,7 @@ body{{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,'Inter','Segoe 
     print("💾 缓存已保存")
 
     # Step 7: Feishu
-    if FEISHU:
+    if PUBLISH_TO_FEISHU and FEISHU:
         print("\n📤 推送飞书...")
         top5 = ""
         i = 0
@@ -548,6 +561,8 @@ body{{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,'Inter','Segoe 
             text += f"\n\n🤖 **LLM 深度分析**\n🔥 热议：{'、'.join(topics_for_feishu[:3])}\n💬 情绪：{analysis.get('user_sentiment','')[:100]}"
             if pains: text += f"\n⚠️ 痛点：{'；'.join(pains)}"
             if highlights: text += f"\n🌟 亮点：{'；'.join(highlights)}"
+        if OPERATOR_NOTE:
+            text += f"\n\n📌 **运营观察**\n{OPERATOR_NOTE}"
         text += f"\n\n📡 **频道 TOP 5**：{top5}"
 
         payload = json.dumps({
@@ -566,8 +581,10 @@ body{{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,'Inter','Segoe 
             print("✅ 已推送到飞书！")
         except Exception as e:
             print(f"⚠️ 推送失败: {e}")
+    elif PUBLISH_TO_FEISHU:
+        print("⚠️ 已确认推送，但未设置飞书 Webhook，跳过推送")
     else:
-        print("⚠️ 未设置飞书 Webhook，跳过推送")
+        print("ℹ️ 草稿模式：已更新 BI 看板，未推送飞书")
 
     print(f"\n✅ 周报完成！总计 {total:,} 条消息 · {mc_speakers} 人参与 · {active_chan} 个频道活跃")
 

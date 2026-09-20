@@ -3,7 +3,17 @@ name: Weekly Community Report
 on:
   schedule:
     - cron: '0 4 * * 1'  # Every Monday 04:00 UTC
-  workflow_dispatch:  # Manual trigger
+  workflow_dispatch:
+    inputs:
+      publish_to_feishu:
+        description: '确认推送到飞书群（定时任务永远不会推送）'
+        required: true
+        default: false
+        type: boolean
+      operator_note:
+        description: '运营观察/建议（可选，将自然展示在周报中）'
+        required: false
+        type: string
 
 jobs:
   build:
@@ -22,6 +32,8 @@ jobs:
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
           ARK_API_KEY: ${{ secrets.ARK_API_KEY }}
           FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
+          PUBLISH_TO_FEISHU: ${{ inputs.publish_to_feishu }}
+          OPERATOR_NOTE: ${{ inputs.operator_note }}
         run: |
           python3 scripts/generate_weekly.py
       
