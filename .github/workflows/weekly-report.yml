@@ -27,8 +27,10 @@ jobs:
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
           ARK_API_KEY: ${{ secrets.ARK_API_KEY }}
           EDITORIAL_CONTEXT: ${{ inputs.editorial_context }}
+          FEISHU_PREVIEW_WEBHOOK: ${{ secrets.FEISHU_PREVIEW_WEBHOOK }}
         run: |
           python3 scripts/generate_weekly.py
+          python3 scripts/send_weekly_preview.py
       
       - name: Commit and push
         run: |
