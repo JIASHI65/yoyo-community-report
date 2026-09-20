@@ -10,8 +10,8 @@ on:
         required: true
         default: false
         type: boolean
-      operator_note:
-        description: '运营观察/建议（可选，将自然展示在周报中）'
+      editorial_context:
+        description: '你希望融入 LLM 深度分析的判断或信息（可选）'
         required: false
         type: string
 
@@ -33,7 +33,7 @@ jobs:
           ARK_API_KEY: ${{ secrets.ARK_API_KEY }}
           FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
           PUBLISH_TO_FEISHU: ${{ inputs.publish_to_feishu }}
-          OPERATOR_NOTE: ${{ inputs.operator_note }}
+          EDITORIAL_CONTEXT: ${{ inputs.editorial_context }}
         run: |
           python3 scripts/generate_weekly.py
       

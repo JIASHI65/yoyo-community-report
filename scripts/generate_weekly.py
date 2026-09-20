@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Yoyo Creative Studio Weekly Report: Discord data + ARK deep analysis + Mochi tracking."""
-import collections, datetime, html, json, os, sys, urllib.parse, urllib.request
+import collections, datetime, json, os, sys, urllib.parse, urllib.request
 
 TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "")
 ARK_KEY = os.environ.get("ARK_API_KEY", "")
 FEISHU = os.environ.get("FEISHU_WEEKLY_WEBHOOK", os.environ.get("FEISHU_WEBHOOK", ""))
 PUBLISH_TO_FEISHU = os.environ.get("PUBLISH_TO_FEISHU", "").lower() == "true"
-OPERATOR_NOTE = os.environ.get("OPERATOR_NOTE", "").strip()
+EDITORIAL_CONTEXT = os.environ.get("EDITORIAL_CONTEXT", "").strip()
 CACHE_FILE = "weekly_cache.json"
 
 CHANNELS = {
@@ -98,11 +98,21 @@ def fetch_samples(channel_id, max_n=10):
         before = msgs[-1]["id"]
     return smart_sample(samples, max_n)
 
-def arkanalyze(messages):
+def arkanalyze(messages, editorial_context=""):
     meaningful = [m for m in messages if len(m.strip()) > 5]
     if not meaningful: return {"hot_discussions":[],"user_sentiment":"","pain_points":[],"highlights":[],"notable_quotes":[],"emerging_topics":"","content_categories":[{{"category":"分类名(如作品分享/问题咨询/正向反馈/闲聊/游戏设计讨论)","pct":整数百分比}}],
     "content_categories":[],"keyword_cloud":[],"weekly_summary":"","mochi_mentions":"无","mochi_feedback":"无"}
     text = "\n".join(f"{i+1}. {m}" for i,m in enumerate(meaningful[:80]))
+    editorial_section = ""
+    if editorial_context:
+        editorial_section = f"""
+
+运营方补充背景：
+{editorial_context}
+
+请把补充背景自然融入热议、情绪、痛点、亮点或总结中，不要单独标注为“运营补充”或“人工输入”。补充背景可用于判断与建议，但不得伪造成玩家原话、聊天事实或统计数据。
+"""
+
     prompt = f"""你是 Yoyo Creative Studio 游戏创作者社群的运营分析师。仔细阅读本周 Discord 聊天记录。
 
 社群背景：这是一个游戏 UGC 创作者社群。
@@ -124,6 +134,7 @@ def arkanalyze(messages):
 {{"hot_discussions":[{{"theme":"12字主题","detail":"120字以上深度分析：聊什么、谁在说、不同观点、潜在影响","buzz":"🔥高/📊中/💬一般","participants":"几个人参与"}}],"user_sentiment":"80字：正/负面各占%、具体情绪关键词、与上周相比的变化","pain_points":["每条80字：具体抱怨什么游戏机制/流程、影响多大、有没有解决方案被提出"],"highlights":["每条40字：有趣事件、谁参与、社区反响"],"notable_quotes":["至少6条英文原文、选最有代表性的"],"emerging_topics":"40字：新趋势","keyword_cloud":["12个高频关键词"],"weekly_summary":"100字：本周一句话总结+值得关注的信号+建议运营动作"}}
 
 要求：具体、有数据感、运营视角。中文分析，quotes保留英文。
+{editorial_section}
 
 聊天记录：
 {text}"""
@@ -247,7 +258,7 @@ def main():
     analysis = {}
     if ARK_KEY and all_samples:
         print(f"\n🤖 ARK 深度分析... (样本{len(all_samples)}条, {sum(len(m) for m in all_samples)}字符)")
-        analysis = arkanalyze(all_samples)
+        analysis = arkanalyze(all_samples, EDITORIAL_CONTEXT)
         topics_list = [d.get('theme','') for d in analysis.get('hot_discussions',[])]
         print(f"  🔥 话题: {', '.join(topics_list[:5])}")
         print(f"  💬 情绪: {analysis.get('user_sentiment','?')[:100]}")
@@ -258,7 +269,14 @@ def main():
     # Step 4.5: Second ARK call - problem diagnosis & action plan
     if ARK_KEY and all_samples:
         print("\n🧠 第二轮 ARK: 运营分析...")
-        strat_prompt = "你是游戏创作者社群的运营分析师。基于本周聊天数据，用中文写一个200字以上的运营总结，必须包含三段：\n\n【问题诊断】列出1-2个核心问题及影响\n【行动建议】给出2-3条可执行动作+预期效果\n【路线图】本周做什么→两周内做什么→一个月内达成什么\n\n聊天数据：\n" + "\n".join(all_samples[:40])
+        editorial_instruction = ""
+        if EDITORIAL_CONTEXT:
+            editorial_instruction = (
+                "\n\n运营方补充背景：\n" + EDITORIAL_CONTEXT
+                + "\n请自然吸收到问题诊断、行动建议和路线图中，不要单独标注来源；"
+                  "不得伪造成玩家原话、聊天事实或统计数据。"
+            )
+        strat_prompt = "你是游戏创作者社群的运营分析师。基于本周聊天数据，用中文写一个200字以上的运营总结，必须包含三段：\n\n【问题诊断】列出1-2个核心问题及影响\n【行动建议】给出2-3条可执行动作+预期效果\n【路线图】本周做什么→两周内做什么→一个月内达成什么" + editorial_instruction + "\n\n聊天数据：\n" + "\n".join(all_samples[:40])
         strat_data = json.dumps({"model":"deepseek-v4-flash-260425","input":[{"role":"user","content":[{"type":"input_text","text":strat_prompt}]}]}).encode()
         strat_req = urllib.request.Request("https://ark.cn-beijing.volces.com/api/v3/responses",data=strat_data,headers={"Content-Type":"application/json","Authorization":f"Bearer {ARK_KEY}"})
         try:
@@ -403,15 +421,6 @@ def main():
     if cat_html:
         cat_html = f'<div class="section"><div class="section-title"><span class="icon">🍩</span> 内容分类占比 · LLM 自动分析</div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px">{cat_html}</div></div>' + chr(10)
 
-    operator_note_html = ""
-    if OPERATOR_NOTE:
-        safe_note = html.escape(OPERATOR_NOTE).replace("\n", "<br>")
-        operator_note_html = f'''
-<div class="section" style="border-color:rgba(255,171,0,.25);background:linear-gradient(135deg,rgba(255,171,0,.08),rgba(15,20,40,.5))">
-  <div class="section-title" style="color:#ffab00"><span class="icon">📌</span> 运营观察</div>
-  <p style="color:#e0e6f0;font-size:14px;line-height:1.8">{safe_note}</p>
-</div>'''
-
     page_html = f'''<!DOCTYPE html>
 <html lang="zh-CN">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
@@ -494,8 +503,6 @@ body{{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,'Inter','Segoe 
 
 {analysis_html}
 
-{operator_note_html}
-
 <div class="section">
   <div class="section-title"><span class="icon">📈</span> creators-exchange 日活跃趋势</div>
   <div class="daily-chart">{daily_bars}</div>
@@ -561,8 +568,6 @@ body{{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,'Inter','Segoe 
             text += f"\n\n🤖 **LLM 深度分析**\n🔥 热议：{'、'.join(topics_for_feishu[:3])}\n💬 情绪：{analysis.get('user_sentiment','')[:100]}"
             if pains: text += f"\n⚠️ 痛点：{'；'.join(pains)}"
             if highlights: text += f"\n🌟 亮点：{'；'.join(highlights)}"
-        if OPERATOR_NOTE:
-            text += f"\n\n📌 **运营观察**\n{OPERATOR_NOTE}"
         text += f"\n\n📡 **频道 TOP 5**：{top5}"
 
         payload = json.dumps({
