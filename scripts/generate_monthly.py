@@ -21,6 +21,14 @@ ALL_CHANNELS = {
     "show-merch": "1529063019349545021",
 }
 
+DISCORD_EPOCH_MS = 1420070400000
+
+
+def snowflake_before(dt):
+    """Build a Discord snowflake boundary so historical scans start at month end."""
+    timestamp_ms = int(dt.timestamp() * 1000)
+    return str((timestamp_ms - DISCORD_EPOCH_MS) << 22)
+
 def fetch(channel_id, before=None):
     params = {"limit": 100}
     if before:
@@ -35,7 +43,7 @@ def fetch(channel_id, before=None):
 def count_all(channel_id, month_start, month_end):
     """Count messages, speakers, daily, user ranking from month_start onward. Returns (count, speakers, daily, user_counts, last_before_id)."""
     count, speakers, daily, user_counts = 0, set(), collections.Counter(), collections.Counter()
-    before = None
+    before = snowflake_before(month_end)
     for _ in range(200):
         try: msgs = fetch(channel_id, before)
         except: break
@@ -60,7 +68,7 @@ def count_all(channel_id, month_start, month_end):
 
 def quick_count(channel_id, month_start, month_end):
     count = 0
-    before = None
+    before = snowflake_before(month_end)
     for _ in range(50):
         try: msgs = fetch(channel_id, before)
         except: break
@@ -106,7 +114,7 @@ def change_color(curr, prev):
 def fetch_samples(channel_id, month_start, month_end, max_samples=60):
     """Fetch message samples for ARK analysis. Returns list of strings."""
     samples = []
-    before = None
+    before = snowflake_before(month_end)
     for _ in range(50):
         try: msgs = fetch(channel_id, before)
         except: break
