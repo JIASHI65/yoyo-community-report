@@ -4,6 +4,16 @@ on:
   schedule:
     - cron: '0 4 1 * *'  # Every 1st of the month 04:00 UTC
   workflow_dispatch:
+    inputs:
+      report_month:
+        description: '指定统计月份，例如 2026-08；留空则按当前月份'
+        required: false
+        type: string
+      publish_to_feishu:
+        description: '确认推送月报到飞书'
+        required: true
+        default: false
+        type: boolean
 
 jobs:
   build:
@@ -20,6 +30,8 @@ jobs:
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
           ARK_API_KEY: ${{ secrets.ARK_API_KEY }}
           FEISHU_MONTHLY_WEBHOOK: ${{ secrets.FEISHU_MONTHLY_WEBHOOK }}
+          REPORT_MONTH: ${{ inputs.report_month }}
+          PUBLISH_TO_FEISHU: ${{ inputs.publish_to_feishu }}
         run: |
           python3 scripts/generate_monthly.py
       - name: Commit and push

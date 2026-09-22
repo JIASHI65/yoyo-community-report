@@ -5,6 +5,8 @@ ARK_KEY = os.environ.get("ARK_API_KEY", "")
 
 TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "")
 FEISHU = os.environ.get("FEISHU_MONTHLY_WEBHOOK", "")
+REPORT_MONTH = os.environ.get("REPORT_MONTH", "").strip()
+PUBLISH_TO_FEISHU = os.environ.get("PUBLISH_TO_FEISHU", "").lower() == "true"
 CACHE_FILE = "monthly_cache.json"
 
 CH_MAIN = "1458349180748828757"
@@ -30,7 +32,7 @@ def fetch(channel_id, before=None):
     })
     return json.loads(urllib.request.urlopen(req, timeout=30).read())
 
-def count_all(channel_id, month_start):
+def count_all(channel_id, month_start, month_end):
     """Count messages, speakers, daily, user ranking from month_start onward. Returns (count, speakers, daily, user_counts, last_before_id)."""
     count, speakers, daily, user_counts = 0, set(), collections.Counter(), collections.Counter()
     before = None
@@ -42,7 +44,7 @@ def count_all(channel_id, month_start):
             ts = m.get("timestamp", "")
             if not ts: continue
             dt = datetime.datetime.fromisoformat(ts.replace("Z", "+00:00"))
-            if dt >= month_start:
+            if month_start <= dt < month_end:
                 author = m.get("author", {})
                 if not author.get("bot"):
                     count += 1
@@ -51,12 +53,12 @@ def count_all(channel_id, month_start):
                     speakers.add(uid)
                     daily[dt.strftime("%m-%d")] += 1
                     user_counts[uname] += 1
-            else:
+            elif dt < month_start:
                 return count, len(speakers), daily, user_counts
         before = msgs[-1]["id"]
     return count, len(speakers), daily, user_counts
 
-def quick_count(channel_id, month_start):
+def quick_count(channel_id, month_start, month_end):
     count = 0
     before = None
     for _ in range(50):
@@ -67,9 +69,9 @@ def quick_count(channel_id, month_start):
             ts = m.get("timestamp", "")
             if not ts: continue
             dt = datetime.datetime.fromisoformat(ts.replace("Z", "+00:00"))
-            if dt >= month_start:
+            if month_start <= dt < month_end:
                 if not m.get("author", {}).get("bot"): count += 1
-            else:
+            elif dt < month_start:
                 return count
         before = msgs[-1]["id"]
     return count
@@ -101,7 +103,7 @@ def change_color(curr, prev):
     if curr >= prev: return "up"
     return "down"
 
-def fetch_samples(channel_id, month_start, max_samples=60):
+def fetch_samples(channel_id, month_start, month_end, max_samples=60):
     """Fetch message samples for ARK analysis. Returns list of strings."""
     samples = []
     before = None
@@ -113,14 +115,14 @@ def fetch_samples(channel_id, month_start, max_samples=60):
             ts = m.get("timestamp", "")
             if not ts: continue
             dt = datetime.datetime.fromisoformat(ts.replace("Z", "+00:00"))
-            if dt >= month_start:
+            if month_start <= dt < month_end:
                 author = m.get("author", {})
                 if not author.get("bot"):
                     ct = m.get("content", "")[:250].strip()
                     if ct and len(ct) > 3:
                         uname = author.get("username", "?")
                         samples.append(f"[{uname}]: {ct}")
-            else: return smart_sample(samples, max_samples)
+            elif dt < month_start: return smart_sample(samples, max_samples)
         before = msgs[-1]["id"]
     return smart_sample(samples, max_samples)
 
@@ -215,14 +217,21 @@ def main():
         print("❌ DISCORD_BOT_TOKEN not set"); return
 
     now = datetime.datetime.now(datetime.timezone.utc)
-    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    month_cn = f"{now.year}年{now.month}月"
-    month_en = now.strftime("%B %Y")
+    if REPORT_MONTH:
+        year, month = (int(part) for part in REPORT_MONTH.split("-"))
+        month_start = datetime.datetime(year, month, 1, tzinfo=datetime.timezone.utc)
+    else:
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    next_month = month_start.replace(day=28) + datetime.timedelta(days=4)
+    month_end = next_month.replace(day=1)
+    month_cn = f"{month_start.year}年{month_start.month}月"
+    month_en = month_start.strftime("%B %Y")
     prev_month = month_start - datetime.timedelta(days=1)
     prev_month_start = prev_month.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     prev_month_cn = f"{prev_month.year}年{prev_month.month}月"
-    is_partial = now.day < 25
-    month_key = now.strftime("%Y-%m")
+    is_partial = month_start.year == now.year and month_start.month == now.month and now.day < 25
+    month_key = month_start.strftime("%Y-%m")
+    report_days = now.day if is_partial else (month_end - month_start).days
 
     print(f"📊 月报: {month_cn}" + (" (部分月)" if is_partial else ""))
 
@@ -237,12 +246,12 @@ def main():
     except: pass
 
     # --- Current month data ---
-    main_count, main_speakers, daily, user_rank = count_all(CH_MAIN, month_start)
+    main_count, main_speakers, daily, user_rank = count_all(CH_MAIN, month_start, month_end)
     top_users = user_rank.most_common(10)
 
     channel_data = {}
     for name, ch_id in ALL_CHANNELS.items():
-        c = quick_count(ch_id, month_start) if ch_id != CH_MAIN else main_count
+        c = quick_count(ch_id, month_start, month_end) if ch_id != CH_MAIN else main_count
         channel_data[name] = c
         if c > 0: print(f"  {name}: {c}")
     print(f"  Total main: {main_count} ({main_speakers}人)")
@@ -251,7 +260,18 @@ def main():
     if total == 0:
         raise RuntimeError("Discord 采集结果为 0；停止生成、覆盖看板和飞书推送")
 
-    # --- Previous month data (from cache or fetch) ---
+    # --- Previous month data (from cache or direct Discord backfill) ---
+    if not prev_cache:
+        print(f"⚠️ 缺少 {prev_month_cn} 缓存，直接从 Discord 补抓上月数据")
+        prev_next_month = prev_month_start.replace(day=28) + datetime.timedelta(days=4)
+        prev_month_end = prev_next_month.replace(day=1)
+        prev_main_count, prev_main_speakers, prev_daily, prev_user_rank = count_all(CH_MAIN, prev_month_start, prev_month_end)
+        prev_channel_data = {}
+        for name, ch_id in ALL_CHANNELS.items():
+            prev_channel_data[name] = (count_all(ch_id, prev_month_start, prev_month_end)[0] if ch_id == CH_MAIN else quick_count(ch_id, prev_month_start, prev_month_end))
+        prev_total = sum(prev_channel_data.values())
+        prev_top_users = [[name, count] for name, count in prev_user_rank.most_common(10)]
+        prev_cache = {"month": prev_month.strftime("%Y-%m"), "main_count": prev_main_count, "main_speakers": prev_main_speakers, "daily": dict(prev_daily), "channel_data": prev_channel_data, "total": prev_total, "top_users": prev_top_users}
     prev_main_count = prev_cache.get("main_count", 0)
     prev_main_speakers = prev_cache.get("main_speakers", 0)
     prev_daily = prev_cache.get("daily", {})
@@ -262,12 +282,12 @@ def main():
 
     # Collect samples for ARK analysis
     print("📝 采集消息样本...")
-    all_samples = fetch_samples(CH_MAIN, month_start, 60)
+    all_samples = fetch_samples(CH_MAIN, month_start, month_end, 60)
     # Also grab a few from active sub-channels
     for name, ch_id in ALL_CHANNELS.items():
         if ch_id == CH_MAIN: continue
         if channel_data.get(name, 0) > 10:
-            more = fetch_samples(ch_id, month_start, 10)
+            more = fetch_samples(ch_id, month_start, month_end, 10)
             all_samples.extend(more)
     print(f"  ✅ 共采集 {len(all_samples)} 条样本")
 
@@ -347,7 +367,7 @@ def main():
     comp_table_rows = []
     comp_metrics = [
         ("公开频道总消息", main_count, prev_main_count),
-        ("日均消息", main_count // max(now.day, 1), prev_main_count // max(prev_month.day, 1) if prev_main_count else 0),
+        ("日均消息", main_count // max(report_days, 1), prev_main_count // max(prev_month.day, 1) if prev_main_count else 0),
         ("发言人数", main_speakers, prev_main_speakers),
         ("活跃子频道数", sum(1 for c in channel_data.values() if c > 0), sum(1 for c in prev_channel_data.values() if c > 0) if prev_channel_data else 0),
     ]
@@ -652,7 +672,7 @@ body{{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,'Inter','Segoe 
 <div class="footer">
   <p>🤖 由 GitHub Actions 自动生成 · {now.strftime("%Y年%m月%d日 %H:%M")} UTC</p>
   <p>数据来源: Discord Bot Mochi's Bot · 通过 Supabase Edge Function 中转</p>
-  <p style="margin-top:6px;color:#5a6480;font-size:10px">💡 上月数据来自缓存文件，本月结束后缓存会自动更新</p>
+  <p style="margin-top:6px;color:#5a6480;font-size:10px">💡 上月数据优先读取缓存，缺失时自动从 Discord 回溯补抓</p>
 </div>
 
 </div></body></html>'''
@@ -662,14 +682,14 @@ body{{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,'Inter','Segoe 
     print("✅ HTML 已生成")
 
     # Feishu push
-    if FEISHU:
+    if PUBLISH_TO_FEISHU and FEISHU:
         mom_info = ""
         if has_prev:
             mom_total = fmt_change(total, prev_total)
             mom_people = fmt_change(main_speakers, prev_main_speakers)
             mom_info = f"\n📈 消息环比：**{mom_total}** | 👥 人数环比：**{mom_people}**"
 
-        feishu_text = f"📢 主频道：**{main_count:,}** 条（👥 {main_speakers}人）{mom_info}\n🗣️ 全频道总计：**{total:,}** 条\n📅 日均：**{main_count//max(now.day,1)}** 条/天" + ("\n\n⚠️ 月度未结束" if is_partial else "")
+        feishu_text = f"📢 主频道：**{main_count:,}** 条（👥 {main_speakers}人）{mom_info}\n🗣️ 全频道总计：**{total:,}** 条\n📅 日均：**{main_count//max(report_days,1)}** 条/天" + ("\n\n⚠️ 月度未结束" if is_partial else "")
 
         if analysis:
             sent = analysis.get('user_sentiment','')
