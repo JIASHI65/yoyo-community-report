@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Generate monthly community report with MoM comparison."""
-import json, os, datetime, urllib.request, urllib.parse, sys, collections, math
+import json, os, datetime, urllib.request, urllib.parse, urllib.error, sys, collections, math, time
 ARK_KEY = os.environ.get("ARK_API_KEY", "")
 
 TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "")
@@ -38,16 +38,27 @@ def fetch(channel_id, before=None):
         "Authorization": f"Bot {TOKEN}",
         "User-Agent": "DiscordBot (https://github.com/JIASHI65/yoyo-community-report, 1.0)",
     })
-    return json.loads(urllib.request.urlopen(req, timeout=30).read())
+    for attempt in range(8):
+        try:
+            with urllib.request.urlopen(req, timeout=30) as response:
+                return json.load(response)
+        except urllib.error.HTTPError as error:
+            if error.code != 429 or attempt == 7:
+                raise
+            retry_after = float(error.headers.get("Retry-After", "2"))
+            time.sleep(min(max(retry_after, 1), 60))
+    raise RuntimeError("Discord rate limit retries exhausted")
 
 def count_all(channel_id, month_start, month_end):
-    """Count messages, speakers, daily, user ranking from month_start onward. Returns (count, speakers, daily, user_counts, last_before_id)."""
+    """Count all non-bot messages in a bounded month, failing on partial scans."""
     count, speakers, daily, user_counts = 0, set(), collections.Counter(), collections.Counter()
     before = snowflake_before(month_end)
-    for _ in range(200):
-        try: msgs = fetch(channel_id, before)
-        except: break
-        if not msgs or not isinstance(msgs, list): break
+    for _ in range(1000):
+        msgs = fetch(channel_id, before)
+        if not isinstance(msgs, list):
+            raise RuntimeError(f"Discord returned non-message response for {channel_id}")
+        if not msgs:
+            return count, len(speakers), daily, user_counts
         for m in msgs:
             ts = m.get("timestamp", "")
             if not ts: continue
@@ -64,15 +75,17 @@ def count_all(channel_id, month_start, month_end):
             elif dt < month_start:
                 return count, len(speakers), daily, user_counts
         before = msgs[-1]["id"]
-    return count, len(speakers), daily, user_counts
+    raise RuntimeError(f"Month scan exceeded 1000 pages for {channel_id}")
 
 def quick_count(channel_id, month_start, month_end):
     count = 0
     before = snowflake_before(month_end)
-    for _ in range(50):
-        try: msgs = fetch(channel_id, before)
-        except: break
-        if not msgs or not isinstance(msgs, list): break
+    for _ in range(1000):
+        msgs = fetch(channel_id, before)
+        if not isinstance(msgs, list):
+            raise RuntimeError(f"Discord returned non-message response for {channel_id}")
+        if not msgs:
+            return count
         for m in msgs:
             ts = m.get("timestamp", "")
             if not ts: continue
@@ -82,7 +95,7 @@ def quick_count(channel_id, month_start, month_end):
             elif dt < month_start:
                 return count
         before = msgs[-1]["id"]
-    return count
+    raise RuntimeError(f"Month scan exceeded 1000 pages for {channel_id}")
 
 def week_label(day_str):
     """Map day string like '08-03' to W1/W2/W3/W4/W5."""
@@ -115,10 +128,12 @@ def fetch_samples(channel_id, month_start, month_end, max_samples=60):
     """Fetch message samples for ARK analysis. Returns list of strings."""
     samples = []
     before = snowflake_before(month_end)
-    for _ in range(50):
-        try: msgs = fetch(channel_id, before)
-        except: break
-        if not msgs or not isinstance(msgs, list): break
+    for _ in range(1000):
+        msgs = fetch(channel_id, before)
+        if not isinstance(msgs, list):
+            raise RuntimeError(f"Discord returned non-message response for {channel_id}")
+        if not msgs:
+            return smart_sample(samples, max_samples)
         for m in msgs:
             ts = m.get("timestamp", "")
             if not ts: continue
@@ -132,7 +147,7 @@ def fetch_samples(channel_id, month_start, month_end, max_samples=60):
                         samples.append(f"[{uname}]: {ct}")
             elif dt < month_start: return smart_sample(samples, max_samples)
         before = msgs[-1]["id"]
-    return smart_sample(samples, max_samples)
+    raise RuntimeError(f"Sample scan exceeded 1000 pages for {channel_id}")
 
 def score_message(content):
     score = len(content)
@@ -229,7 +244,8 @@ def main():
         year, month = (int(part) for part in REPORT_MONTH.split("-"))
         month_start = datetime.datetime(year, month, 1, tzinfo=datetime.timezone.utc)
     else:
-        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        current_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        month_start = (current_month_start - datetime.timedelta(days=1)).replace(day=1)
     next_month = month_start.replace(day=28) + datetime.timedelta(days=4)
     month_end = next_month.replace(day=1)
     month_cn = f"{month_start.year}年{month_start.month}月"
@@ -248,8 +264,8 @@ def main():
     try:
         with open(CACHE_FILE) as f:
             prev_cache = json.load(f)
-        if prev_cache.get("month") != prev_month.strftime("%Y-%m"):
-            print(f"⚠️ 缓存是 {prev_cache.get('month')} 不是 {prev_month.strftime('%Y-%m')}，不适用")
+        if prev_cache.get("month") != prev_month.strftime("%Y-%m") or not prev_cache.get("complete"):
+            print("⚠️ 上月缓存缺失或未经完整扫描，不适用")
             prev_cache = {}
     except: pass
 
@@ -274,9 +290,10 @@ def main():
         prev_next_month = prev_month_start.replace(day=28) + datetime.timedelta(days=4)
         prev_month_end = prev_next_month.replace(day=1)
         prev_main_count, prev_main_speakers, prev_daily, prev_user_rank = count_all(CH_MAIN, prev_month_start, prev_month_end)
-        prev_channel_data = {}
+        prev_channel_data = {"creators-exchange": prev_main_count}
         for name, ch_id in ALL_CHANNELS.items():
-            prev_channel_data[name] = (count_all(ch_id, prev_month_start, prev_month_end)[0] if ch_id == CH_MAIN else quick_count(ch_id, prev_month_start, prev_month_end))
+            if ch_id != CH_MAIN:
+                prev_channel_data[name] = quick_count(ch_id, prev_month_start, prev_month_end)
         prev_total = sum(prev_channel_data.values())
         prev_top_users = [[name, count] for name, count in prev_user_rank.most_common(10)]
         prev_cache = {"month": prev_month.strftime("%Y-%m"), "main_count": prev_main_count, "main_speakers": prev_main_speakers, "daily": dict(prev_daily), "channel_data": prev_channel_data, "total": prev_total, "top_users": prev_top_users}
@@ -346,6 +363,7 @@ def main():
 
     cache_data = {
         "month": month_key,
+        "complete": True,
         "main_count": main_count,
         "main_speakers": main_speakers,
         "total": total,
