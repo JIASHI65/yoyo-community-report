@@ -1,8 +1,8 @@
 # 📊 Yoyo Creative Studio 周报 · 10/05-10/12
 
-📢 creators-exchange：**800** 条（👥 40人）
-🗣️ 全频道总计：**827** 条 · 日均 **118** 条
-🆕 新发言：30人 · 🔄 回流：10人
+📢 creators-exchange：**800** 条（👥 41人）
+🗣️ 全频道总计：**823** 条 · 日均 **117** 条
+🆕 新发言：31人 · 🔄 回流：10人
 
 🤖 **LLM 深度分析**
 🔥 热议：创作者间争议与支持、积分兑换选择、作品互推与创作展示
@@ -12,7 +12,7 @@
 
 📡 **频道 TOP 5**：
 1. #creators-exchange: 800条
-2. #show-merch: 25条
+2. #show-merch: 21条
 3. #bulletin-board: 2条
 4. #refer-a-friend: 0条
 5. #creator-tier-system: 0条
