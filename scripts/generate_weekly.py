@@ -4,6 +4,7 @@ import collections, datetime, json, os, sys, urllib.error, urllib.parse, urllib.
 
 TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "")
 ARK_KEY = os.environ.get("ARK_API_KEY", "")
+ARK_MODEL = os.environ.get("ARK_MODEL", "doubao-seed-1-6-flash-250828")
 EDITORIAL_CONTEXT = os.environ.get("EDITORIAL_CONTEXT", "").strip()
 CACHE_FILE = "weekly_cache.json"
 
@@ -136,7 +137,7 @@ def arkanalyze(messages, editorial_context=""):
 
 聊天记录：
 {text}"""
-    data = json.dumps({"model":"deepseek-v4-flash-260425","input":[{"role":"user","content":[{"type":"input_text","text":prompt}]}]}).encode()
+    data = json.dumps({"model":ARK_MODEL,"input":[{"role":"user","content":[{"type":"input_text","text":prompt}]}]}).encode()
     req = urllib.request.Request("https://ark.cn-beijing.volces.com/api/v3/responses",data=data,headers={"Content-Type":"application/json","Authorization":f"Bearer {ARK_KEY}"})
     try:
         resp = json.loads(urllib.request.urlopen(req,timeout=120).read())
@@ -279,7 +280,7 @@ def main():
                   "不得伪造成玩家原话、聊天事实或统计数据。"
             )
         strat_prompt = "你是游戏创作者社群的运营分析师。基于本周聊天数据，用中文写一个200字以上的运营总结，必须包含三段：\n\n【问题诊断】列出1-2个核心问题及影响\n【行动建议】给出2-3条可执行动作+预期效果\n【路线图】本周做什么→两周内做什么→一个月内达成什么" + editorial_instruction + "\n\n聊天数据：\n" + "\n".join(all_samples[:40])
-        strat_data = json.dumps({"model":"deepseek-v4-flash-260425","input":[{"role":"user","content":[{"type":"input_text","text":strat_prompt}]}]}).encode()
+        strat_data = json.dumps({"model":ARK_MODEL,"input":[{"role":"user","content":[{"type":"input_text","text":strat_prompt}]}]}).encode()
         strat_req = urllib.request.Request("https://ark.cn-beijing.volces.com/api/v3/responses",data=strat_data,headers={"Content-Type":"application/json","Authorization":f"Bearer {ARK_KEY}"})
         try:
             strat_resp = json.loads(urllib.request.urlopen(strat_req,timeout=60).read())
