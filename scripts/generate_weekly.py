@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Yoyo Creative Studio Weekly Report: Discord data + ARK deep analysis + Mochi tracking."""
-import collections, datetime, json, os, sys, urllib.parse, urllib.request
+import collections, datetime, json, os, sys, urllib.error, urllib.parse, urllib.request
 
 TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "")
 ARK_KEY = os.environ.get("ARK_API_KEY", "")
@@ -138,7 +138,11 @@ def arkanalyze(messages, editorial_context=""):
 {text}"""
     data = json.dumps({"model":"deepseek-v4-flash-260425","input":[{"role":"user","content":[{"type":"input_text","text":prompt}]}]}).encode()
     req = urllib.request.Request("https://ark.cn-beijing.volces.com/api/v3/responses",data=data,headers={"Content-Type":"application/json","Authorization":f"Bearer {ARK_KEY}"})
-    resp = json.loads(urllib.request.urlopen(req,timeout=120).read())
+    try:
+        resp = json.loads(urllib.request.urlopen(req,timeout=120).read())
+    except urllib.error.HTTPError as exc:
+        error_body = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"ARK API returned HTTP {exc.code}: {error_body}") from exc
     for item in resp.get("output",[]):
         if item.get("type") == "message":
             for c in item.get("content",[]):
