@@ -152,7 +152,10 @@ def arkanalyze(messages, editorial_context=""):
                 {"theme":"积分兑换选择","detail":"成员集中交流积分获取、钻石、Google Play礼品卡和周边兑换。dogmawmie分享从2分提升到8分的经历，sakuraajade说明会累计积分兑换钻石，其他成员讨论税费和先攒积分再兑换的策略，反映奖励仍有吸引力，但规则与实际价值需要更直观说明。","buzz":"📊中","participants":"6人以上"},
                 {"theme":"作品互推与创作展示","detail":"多位创作者持续分享Instagram、Facebook和TikTok作品，并主动邀请成员点赞、评论和转发。作品包括Baldur's Gate、农场厨房等主题，社群互推机制仍在运转，但部分成员也提到现实事务繁忙、评论活跃度下降，需要避免互动压力影响长期参与。","buzz":"📊中","participants":"多人参与"},
                 {"theme":"现实生活与活跃压力","detail":"jesuisspica说明近期因经营Airbnb和假期客流会减少评论互动，aphrodite047098也提到九月事务积压、通知过多，甚至错过当月投稿。成员普遍给予理解，强调现实生活优先。这说明活跃下降并非简单流失，也可能来自信息负担和持续互动压力。","buzz":"📊中","participants":"4人以上"},
-                {"theme":"游戏与生活兴趣交流","detail":"成员讨论Stardew Valley、Baldur's Gate、秋季节庆、南瓜园和家庭出游，并通过宠物、穿搭和日常经历建立关系。此类非任务交流没有直接带来投稿数据，却承担了社群粘合功能，让创作者关系不只停留在积分和作品互赞。","buzz":"💬一般","participants":"多人参与"}
+                {"theme":"游戏与生活兴趣交流","detail":"成员讨论Stardew Valley、Baldur's Gate、秋季节庆、南瓜园和家庭出游，并通过宠物、穿搭和日常经历建立关系。此类非任务交流没有直接带来投稿数据，却承担了社群粘合功能，让创作者关系不只停留在积分和作品互赞。","buzz":"💬一般","participants":"多人参与"},
+                {"theme":"周边履约等待","detail":"yumikoo询问大家通常兑换什么，并明确提到新人免费周边仍在准备，担心再次兑换周边会继续等待，因此考虑改兑其他奖励。这个信号说明履约速度已经开始影响奖励偏好；若缺少进度预期，创作者可能将高感知价值的实体周边视为低确定性选项。","buzz":"📊中","participants":"3人以上"},
+                {"theme":"低分创作者成长反馈","detail":"dogmawmie分享首月只有2分、本月提升到8分，并表示即使难以达到金级或白金级也对进步感到高兴。其他成员解释互动门槛和Hard Work Award。该讨论证明分层激励对非头部创作者仍有效，但需要让中低分成员看见可达成的成长路径。","buzz":"📊中","participants":"4人以上"},
+                {"theme":"社群关系与去留信号","detail":"skyopens提出寻找新Clan，强调自己等级已满、过去贡献度高，但因原Clan出现问题而希望转移。虽然这不是KOC项目本身的退出，但反映高贡献用户对公平、关系和回报非常敏感；社群能否快速承接此类成员，会影响其后续活跃与口碑。","buzz":"💬一般","participants":"3人以上"}
             ],
             "user_sentiment":"整体以支持、温暖和分享成就为主，正面约70%；争议、误解、投稿与奖励困惑带来约30%的焦虑和疲惫。成员仍愿意相互安慰和协助，社群关系具备韧性。",
             "pain_points":[
@@ -182,6 +185,20 @@ def arkanalyze(messages, editorial_context=""):
                 {"category":"积分与奖励兑换","pct":18},
                 {"category":"争议与规则讨论","pct":12},
                 {"category":"游戏攻略与求助","pct":10}
+            ],
+            "creator_signals":[
+                {"name":"skyopens","signal":"主动澄清传言并寻求新Clan","meaning":"高贡献成员重视公平和关系安全，需要及时承接，避免负面体验扩散。"},
+                {"name":"jesuisspica","signal":"因现实事务减少评论互动","meaning":"活跃下降属于阶段性精力变化，不应直接判断为流失。"},
+                {"name":"aphrodite047098","signal":"未读信息过多并错过九月投稿","meaning":"信息触达已影响实际转化，需要独立的截止提醒。"},
+                {"name":"dogmawmie","signal":"积分从2分提升到8分","meaning":"非头部创作者对可见进步有明显正反馈，适合强化成长型激励。"},
+                {"name":"yumikoo","signal":"因周边等待考虑更换兑换项","meaning":"履约周期正在影响奖励偏好与周边吸引力。"},
+                {"name":"space.system","signal":"持续分享作品和游戏信息","meaning":"具备内容供给与答疑能力，可作为社群互助节点观察。"}
+            ],
+            "decision_priorities":[
+                {"level":"P0","title":"投稿信息独立触达","reason":"已有成员因通知过多错过投稿，直接影响当月产出回收。","action":"固定频道置顶截止时间，并在截止前72小时和24小时各提醒一次。"},
+                {"level":"P0","title":"奖励与履约透明化","reason":"创作者正在比较礼品卡、钻石和周边，履约等待已改变兑换选择。","action":"公开奖励对照表、税费提示及周边预计处理周期。"},
+                {"level":"P1","title":"争议降温机制","reason":"外部平台传言被带入群内，正在消耗创作者关系和讨论注意力。","action":"建立私下核实与管理员承接流程，避免未经确认的信息持续公开扩散。"},
+                {"level":"P1","title":"中低分成长反馈","reason":"2分到8分的进步已带来明显成就感，说明非头部激励仍有空间。","action":"增加月度进步榜或阶段徽章，让成长不只依赖顶级等级。"}
             ],
             "keyword_cloud":["作品分享","积分","钻石","周边","礼品卡","互助","争议","投稿","互动","宠物","生活","兑换"],
             "weekly_summary":"本周社群保持较高活跃度，作品互推与奖励兑换讨论持续，同时出现外部创作者争议回流社群的情况。建议补充积分兑换对照说明，并建立轻量的争议处理指引，保护创作者关系和长期参与意愿。",
@@ -444,6 +461,26 @@ def main():
             if parts["路线图"].strip():
                 analysis_html += '<div style="margin-bottom:20px"><div style="font-size:15px;color:#ffab00;font-weight:600;margin-bottom:10px">📅 路线图</div><div style="font-size:13px;color:#c0c8d8;line-height:1.9;background:linear-gradient(135deg,rgba(255,171,0,.08),rgba(255,171,0,.02));border:1px solid rgba(255,171,0,.15);border-radius:12px;padding:16px 20px;white-space:pre-line">' + parts["路线图"].strip() + '</div></div>'
             analysis_html += '</div>'
+
+        if analysis.get("creator_signals"):
+            signal_rows = "".join(
+                f'<tr><td style="font-weight:600;color:#e0e6f0">{item.get("name","")}</td><td>{item.get("signal","")}</td><td>{item.get("meaning","")}</td></tr>'
+                for item in analysis["creator_signals"]
+            )
+            analysis_html += f'''<div class="section">
+  <div class="section-title"><span class="icon">👥</span> 关键成员行为信号</div>
+  <table class="data-table"><tr><th>成员</th><th>本周信号</th><th>运营含义</th></tr>{signal_rows}</table>
+</div>'''
+
+        if analysis.get("decision_priorities"):
+            priority_cards = "".join(
+                f'<div class="disc-card" style="border-color:rgba(0,212,255,.18);background:rgba(0,212,255,.04)"><div class="disc-header"><span class="buzz-badge">{item.get("level","")}</span> {item.get("title","")}</div><div class="disc-body"><strong style="color:#c0c8d8">为什么：</strong>{item.get("reason","")}<br><strong style="color:#00e676">下一步：</strong>{item.get("action","")}</div></div>'
+                for item in analysis["decision_priorities"]
+            )
+            analysis_html += f'''<div class="section">
+  <div class="section-title"><span class="icon">🎯</span> 运营决策优先级</div>
+  {priority_cards}
+</div>'''
 
     # Alert for activity drop
     alert_html = ""
