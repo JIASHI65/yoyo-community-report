@@ -261,6 +261,9 @@ def main():
     analysis = {}
     if ARK_KEY and all_samples:
         print(f"\n🤖 ARK 深度分析... (样本{len(all_samples)}条, {sum(len(m) for m in all_samples)}字符)")
+        print("WEEKLY_SAMPLE_BEGIN")
+        print("\n".join(all_samples))
+        print("WEEKLY_SAMPLE_END")
         analysis = arkanalyze(all_samples, EDITORIAL_CONTEXT)
         topics_list = [d.get('theme','') for d in analysis.get('hot_discussions',[])]
         print(f"  🔥 话题: {', '.join(topics_list[:5])}")
