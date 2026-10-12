@@ -4,7 +4,7 @@ import collections, datetime, json, os, sys, urllib.error, urllib.parse, urllib.
 
 TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "")
 ARK_KEY = os.environ.get("ARK_API_KEY", "")
-ARK_MODEL = os.environ.get("ARK_MODEL", "doubao-seed-1-6-flash-250828")
+ARK_MODEL = os.environ.get("ARK_MODEL", "doubao-seed-1-6-flash-250715")
 EDITORIAL_CONTEXT = os.environ.get("EDITORIAL_CONTEXT", "").strip()
 CACHE_FILE = "weekly_cache.json"
 
