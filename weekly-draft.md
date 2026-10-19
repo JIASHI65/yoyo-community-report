@@ -1,8 +1,8 @@
-# 📊 Yoyo Creative Studio 周报 · 10/05-10/12
+# 📊 Yoyo Creative Studio 周报 · 10/12-10/19
 
-📢 creators-exchange：**800** 条（👥 41人）
-🗣️ 全频道总计：**823** 条 · 日均 **117** 条
-🆕 新发言：31人 · 🔄 回流：10人
+📢 creators-exchange：**1,400** 条（👥 38人）
+🗣️ 全频道总计：**1,440** 条 · 日均 **205** 条
+🆕 新发言：28人 · 🔄 回流：10人
 
 🤖 **LLM 深度分析**
 🔥 热议：创作者间争议与支持、积分兑换选择、作品互推与创作展示
@@ -11,10 +11,10 @@
 🌟 亮点：多名成员主动安慰受到争议影响的创作者，并明确表示愿意提供帮助；作品互推保持活跃，成员持续分享跨平台作品并互相提供互动支持。
 
 📡 **频道 TOP 5**：
-1. #creators-exchange: 800条
-2. #show-merch: 21条
-3. #bulletin-board: 2条
-4. #refer-a-friend: 0条
-5. #creator-tier-system: 0条
+1. #creators-exchange: 1,400条
+2. #show-pet: 21条
+3. #show-merch: 17条
+4. #bulletin-board: 1条
+5. #official-inspirations: 1条
 
 🌐 查看完整周报：https://jiashi65.github.io/yoyo-community-report/weekly.html
