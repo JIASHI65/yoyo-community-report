@@ -9,6 +9,11 @@ on:
         description: '你希望融入 LLM 深度分析的判断或信息（可选）'
         required: false
         type: string
+      send_preview:
+        description: '是否将草稿发送到飞书预览 webhook'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   build:
@@ -27,10 +32,13 @@ jobs:
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
           ARK_API_KEY: ${{ secrets.ARK_API_KEY }}
           EDITORIAL_CONTEXT: ${{ inputs.editorial_context }}
+        run: python3 scripts/generate_weekly.py
+
+      - name: Send weekly preview
+        if: ${{ inputs.send_preview == true }}
+        env:
           FEISHU_PREVIEW_WEBHOOK: ${{ secrets.FEISHU_PREVIEW_WEBHOOK }}
-        run: |
-          python3 scripts/generate_weekly.py
-          python3 scripts/send_weekly_preview.py
+        run: python3 scripts/send_weekly_preview.py
       
       - name: Commit and push
         run: |
