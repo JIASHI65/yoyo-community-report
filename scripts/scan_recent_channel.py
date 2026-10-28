@@ -2,7 +2,9 @@
 import datetime
 import json
 import os
+import time
 import urllib.parse
+import urllib.error
 import urllib.request
 
 
@@ -27,7 +29,15 @@ def fetch(before=None):
             "User-Agent": "DiscordBot (community incident review, 1.0)",
         },
     )
-    return json.loads(urllib.request.urlopen(request, timeout=30).read())
+    for attempt in range(8):
+        try:
+            return json.loads(urllib.request.urlopen(request, timeout=30).read())
+        except urllib.error.HTTPError as error:
+            if error.code != 429 or attempt == 7:
+                raise
+            body = json.loads(error.read())
+            time.sleep(float(body.get("retry_after", 1)) + 0.25)
+    return []
 
 
 def main():
