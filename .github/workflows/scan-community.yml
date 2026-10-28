@@ -1,0 +1,41 @@
+name: Encrypted Community Scan
+
+on:
+  workflow_dispatch:
+    inputs:
+      lookback_hours:
+        description: Hours of channel history to scan
+        required: true
+        default: "72"
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Collect channel messages
+        env:
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          LOOKBACK_HOURS: ${{ inputs.lookback_hours }}
+        run: python3 scripts/scan_recent_channel.py
+
+      - name: Encrypt scan
+        env:
+          SCAN_ENCRYPTION_KEY: ${{ secrets.SCAN_ENCRYPTION_KEY }}
+        run: |
+          openssl enc -aes-256-cbc -pbkdf2 -salt \
+            -in recent-channel-scan.json \
+            -out recent-channel-scan.json.enc \
+            -pass env:SCAN_ENCRYPTION_KEY
+          rm recent-channel-scan.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: encrypted-community-scan
+          path: recent-channel-scan.json.enc
+          retention-days: 1
