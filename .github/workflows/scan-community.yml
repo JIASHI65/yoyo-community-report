@@ -37,8 +37,7 @@ jobs:
       - name: Print encrypted scan for retrieval
         run: |
           echo "ENCRYPTED_SCAN_BEGIN"
-          base64 -w 0 recent-channel-scan.json.enc
-          echo
+          base64 -w 76 recent-channel-scan.json.enc
           echo "ENCRYPTED_SCAN_END"
 
       - uses: actions/upload-artifact@v4
