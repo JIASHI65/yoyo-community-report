@@ -14,6 +14,11 @@ on:
         required: true
         default: false
         type: boolean
+      forecast_remaining_days:
+        description: '按近7日日均补齐的月末天数'
+        required: false
+        default: "0"
+        type: string
 
 jobs:
   build:
@@ -32,6 +37,7 @@ jobs:
           FEISHU_MONTHLY_WEBHOOK: ${{ secrets.FEISHU_MONTHLY_WEBHOOK }}
           REPORT_MONTH: ${{ inputs.report_month }}
           PUBLISH_TO_FEISHU: ${{ inputs.publish_to_feishu }}
+          FORECAST_REMAINING_DAYS: ${{ inputs.forecast_remaining_days }}
         run: |
           python3 scripts/generate_monthly.py
       - name: Commit and push

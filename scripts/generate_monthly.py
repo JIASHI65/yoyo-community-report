@@ -7,6 +7,7 @@ TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "")
 FEISHU = os.environ.get("FEISHU_MONTHLY_WEBHOOK", "")
 REPORT_MONTH = os.environ.get("REPORT_MONTH", "").strip()
 PUBLISH_TO_FEISHU = os.environ.get("PUBLISH_TO_FEISHU", "").lower() == "true"
+FORECAST_REMAINING_DAYS = int(os.environ.get("FORECAST_REMAINING_DAYS", "0") or 0)
 CACHE_FILE = "monthly_cache.json"
 
 CH_MAIN = "1458349180748828757"
@@ -253,9 +254,9 @@ def main():
     prev_month = month_start - datetime.timedelta(days=1)
     prev_month_start = prev_month.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     prev_month_cn = f"{prev_month.year}年{prev_month.month}月"
-    is_partial = month_start.year == now.year and month_start.month == now.month and now.day < 25
+    is_partial = month_start.year == now.year and month_start.month == now.month and now < month_end
     month_key = month_start.strftime("%Y-%m")
-    report_days = now.day if is_partial else (month_end - month_start).days
+    report_days = (month_end - month_start).days if FORECAST_REMAINING_DAYS else (now.day if is_partial else (month_end - month_start).days)
 
     print(f"📊 月报: {month_cn}" + (" (部分月)" if is_partial else ""))
 
@@ -283,6 +284,24 @@ def main():
     total = sum(channel_data.values())
     if total == 0:
         raise RuntimeError("Discord 采集结果为 0；停止生成、覆盖看板和飞书推送")
+
+    forecast_note = ""
+    if FORECAST_REMAINING_DAYS > 0:
+        recent_days = sorted(daily)[-7:]
+        recent_daily_avg = (
+            sum(daily[day] for day in recent_days) / len(recent_days)
+            if recent_days else main_count / max(now.day, 1)
+        )
+        forecast_main = round(recent_daily_avg * FORECAST_REMAINING_DAYS)
+        scale = (main_count + forecast_main) / main_count if main_count else 1
+        main_count += forecast_main
+        channel_data["creators-exchange"] = main_count
+        for name in channel_data:
+            if name != "creators-exchange":
+                channel_data[name] = round(channel_data[name] * scale)
+        total = sum(channel_data.values())
+        forecast_note = f"10月末{FORECAST_REMAINING_DAYS}日按近7日日均补齐"
+        print(f"📈 {forecast_note}: 主频道 +{forecast_main} 条")
 
     # --- Previous month data (from cache or direct Discord backfill) ---
     if not prev_cache:
@@ -560,7 +579,7 @@ def main():
     <div style="background:rgba(0,0,0,.15);border-radius:10px;padding:14px;text-align:center"><div style="font-size:28px;font-weight:700;color:#ffab00">12%</div><div style="font-size:12px;color:#8892b0;margin-top:4px">规则答疑</div></div>
     <div style="background:rgba(0,0,0,.15);border-radius:10px;padding:14px;text-align:center"><div style="font-size:28px;font-weight:700;color:#b388ff">10%</div><div style="font-size:12px;color:#8892b0;margin-top:4px">创作指导</div></div>'''
 
-    partial_banner = '<span class="badge" style="background:rgba(255,171,0,.15);border:1px solid rgba(255,171,0,.3);color:#ffab00">⚠️ 月度未结束，数据为当前统计</span>' if is_partial else ''
+    partial_banner = f'<span class="badge" style="background:rgba(255,171,0,.15);border:1px solid rgba(255,171,0,.3);color:#ffab00">📈 {forecast_note}</span>' if forecast_note else ('<span class="badge" style="background:rgba(255,171,0,.15);border:1px solid rgba(255,171,0,.3);color:#ffab00">⚠️ 月度未结束，数据为当前统计</span>' if is_partial else '')
     comparison_header = f'{prev_month_cn} → {month_cn} 环比对比报告' if has_prev else f'{month_cn}社群运营月报'
     prev_date_info = now.strftime("%Y/%m/%d")
 
