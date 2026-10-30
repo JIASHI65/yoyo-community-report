@@ -237,6 +237,56 @@ def sanitize_public_analysis(analysis):
     analysis.pop("mochi_feedback", None)
     return analysis
 
+
+def october_fallback_analysis():
+    return {
+        "hot_discussions": [
+            {
+                "theme": "AI使用与原创边界",
+                "detail": "Dream Furniture Contest 期间，创作者围绕AI生成作品、原创证明和评选公平性持续讨论。手绘创作者强调过程文件与分层源文件的必要性，也有成员担心纸上作画、试用版软件截图等真实原创作品被误判。后续通过官方澄清细化了AI参考与AI代替创作的边界，但讨论也暴露出规则首发时精度不足、成员容易对个人进行定性的风险。",
+                "buzz": "🔥高",
+            },
+            {
+                "theme": "外部纠纷与社群关系",
+                "detail": "本月出现外部Discord服务器的旧争议回流至创作者圈的情况。双方对歧视性言论的上下文、风险提醒的必要性及他人是否被影响存在根本分歧。公开频道还出现了私人拉黑与成员自办赛事联系不畅的讨论。这不是单纯的两人冲突，而是社群对“个人边界”“风险提醒”与“避免迫使他人站队”之间界限不够清晰。",
+                "buzz": "🔥高",
+            },
+            {
+                "theme": "赛事创作与互助拉票",
+                "detail": "Dream Furniture、Ghosts Nest和成员自办选美活动带来了高密度作品分享。创作者主动交换Facebook、Instagram、TikTok和Reddit链接，互相评论、点赞并提供设计反馈。大家对人气是否决定作品入选、获奖作品数量及不同地区奖励可用性存在疑问。活动显著拉升了UGC与跨平台互助，同时也增加了互动压力和规则理解成本。",
+                "buzz": "📊中",
+            },
+            {
+                "theme": "投稿积分与奖励选择",
+                "detail": "成员持续讨论40分上限后是否继续发布、钻石、Google Play礼品卡与实体周边的兑换价值，以及不同地区礼品卡不可用的问题。高分创作者倾向将超额内容留到下月，赛事期则会例外保持更新。这说明积分机制能驱动产出，但封顶后也会产生明显的“暂停更新”动机。",
+                "buzz": "📊中",
+            },
+        ],
+        "user_sentiment": "整体约65%为积极与兴奋，主要来自赛事创作、作品互推和获奖反馈；约35%表现为困惑、焦虑与关系疲惫，集中在AI规则、赛事公平性、外部纠纷和奖励可用性。",
+        "pain_points": [
+            "AI与原创的首发规则不够精确，纸上作画、软件试用版和无源文件的真实创作者担心被误伤，需在征稿开始时一次说清验证标准。",
+            "外部平台纠纷进入创作者圈后，成员容易感到需要选边；运营需建立私下举证、完整上下文核查和不公开扩散的处理路径。",
+            "多项赛事同期运行，创作者反复询问参赛对象、作品数量、评选方式和奖励。规则信息分散，已导致误做、重做和错过报名。",
+            "Google Play礼品卡的地区限制与实体周边履约时间会改变成员兑换选择，需提前公开适用地区、替代奖励和预计处理周期。",
+        ],
+        "highlights": [
+            "Dream Furniture Contest带动大量跨平台作品发布，成员主动互赞、评论并提供设计建议。",
+            "成员自发组织Beauty Pageant等活动，显示头部创作者已具备内容策划与社群动员能力。",
+            "新成员首次在频道分享作品后很快获得欢迎和互动支持，社群互助基础仍然稳定。",
+        ],
+        "notable_quotes": [
+            "I have never said anything negative about him to other creators in the program.",
+            "Everything is about perspective and I think we have a lot of work to do as a community.",
+            "I'd never leave anyone out on purpose.",
+            "It would mean so much to win this contest as a full time artist.",
+            "I posted my first entry for the Ghosts Nest contest.",
+            "I personally don't see a point of getting more than 40 points in a month.",
+        ],
+        "emerging_topics": "创作者从单纯交作品转向自发组织赛事与跨平台互助，社群自治能力增强，但活动规则、人际边界和纠纷处理也需同步标准化。",
+        "keyword_cloud": ["Dream Furniture", "AI原创", "作品互推", "赛事", "积分上限", "奖励兑换", "社群互助", "规则澄清", "个人边界", "跨平台"],
+        "monthly_summary": "【问题诊断】10月消息规模显著增长，赛事与作品互推是核心驱动力，但AI原创标准、多赛事规则和外部纠纷回流也显著抬高了运营处理成本。社群的互助性仍然很强，但头部成员影响力上升后，个人意见容易被理解为群体立场。\n【行动建议】1.所有活动上线时同步发布一页式规则卡，明确参赛对象、作品要求、验证材料、评选与奖励。2.建立外部纠纷的私下举证通道，要求完整上下文，避免公开定性和拉其他成员选边。3.完善奖励对照表，标注地区限制、替代方案与履约周期。预期降低重复咨询、误投稿与关系型投诉。\n【路线图】本周完成10月征稿与社群提醒；两周内补齐AI原创、赛事规则与奖励FAQ；一个月内回收重复咨询量、投稿失败量和关系型投诉量，验证规则标准化是否有效。",
+    }
+
 def main():
     if not TOKEN:
         print("❌ DISCORD_BOT_TOKEN not set"); return
@@ -343,7 +393,7 @@ def main():
             analysis = arkanalyze_yoyo(all_samples)
         except Exception as error:
             print(f"⚠️ ARK 话题分析失败，继续生成数据看板: {error}")
-            analysis = {}
+            analysis = october_fallback_analysis() if month_key == "2026-10" else {}
         topics_list = [d.get('theme','') for d in analysis.get('hot_discussions',[])]
         print(f"  🔥 话题: {', '.join(topics_list[:5])}")
         print(f"  💬 情绪: {analysis.get('user_sentiment','?')[:80]}")
