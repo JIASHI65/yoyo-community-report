@@ -1,0 +1,32 @@
+name: Encrypted Role Member Audit
+
+on:
+  workflow_dispatch:
+    inputs:
+      role_name:
+        description: Discord role name
+        required: true
+        default: Gold Creator
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Query role members
+        env:
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          ROLE_NAME: ${{ inputs.role_name }}
+        run: python3 scripts/list_role_members.py
+      - name: Encrypt and print result
+        env:
+          ROLE_AUDIT_KEY: ${{ secrets.ROLE_AUDIT_KEY }}
+        run: |
+          openssl enc -aes-256-cbc -pbkdf2 -salt -in role-members.json -out role-members.json.enc -pass env:ROLE_AUDIT_KEY
+          rm role-members.json
+          echo ENCRYPTED_ROLE_BEGIN
+          base64 -w 76 role-members.json.enc
+          echo ENCRYPTED_ROLE_END
