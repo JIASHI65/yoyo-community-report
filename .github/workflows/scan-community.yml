@@ -7,6 +7,10 @@ on:
         description: Hours of channel history to scan
         required: true
         default: "72"
+      channel_id:
+        description: Discord channel ID to scan
+        required: false
+        default: "1458349180748828757"
 
 jobs:
   scan:
@@ -22,6 +26,7 @@ jobs:
         env:
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
           LOOKBACK_HOURS: ${{ inputs.lookback_hours }}
+          DISCORD_CHANNEL_ID: ${{ inputs.channel_id }}
         run: python3 scripts/scan_recent_channel.py
 
       - name: Encrypt scan

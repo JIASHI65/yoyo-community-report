@@ -67,6 +67,7 @@ def main():
                     "id": message["id"],
                     "timestamp": message["timestamp"],
                     "username": author.get("username", "unknown"),
+                    "author_id": author.get("id", ""),
                     "display_name": author.get("global_name") or "",
                     "content": message.get("content", ""),
                     "referenced_content": referenced.get("content", ""),

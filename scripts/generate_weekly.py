@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
-"""Yoyo Creative Studio Weekly Report: Discord data + ARK deep analysis + Mochi tracking."""
-import collections, datetime, json, os, sys, urllib.error, urllib.parse, urllib.request
+"""Yoyo Creative Studio Weekly Report: Discord data and LLM analysis."""
+import collections, datetime, json, os, sys, time, urllib.error, urllib.parse, urllib.request
 
 TOKEN = os.environ.get("DISCORD_BOT_TOKEN", "")
 ARK_KEY = os.environ.get("ARK_API_KEY", "")
 ARK_MODEL = os.environ.get("ARK_MODEL", "doubao-seed-1-6-flash-250715")
+OPENAI_KEY = os.environ.get("OPENAI_API_KEY", "")
+LLM_KEY = OPENAI_KEY or ARK_KEY
+LLM_MODEL = os.environ.get("OPENAI_MODEL", "gpt-6-astra") if OPENAI_KEY else ARK_MODEL
+LLM_URL = os.environ.get("OPENAI_BASE_URL", "").rstrip("/") + "/responses" if OPENAI_KEY else "https://ark.cn-beijing.volces.com/api/v3/responses"
+LLM_SOURCE = "CC Switch" if OPENAI_KEY else "ARK"
 EDITORIAL_CONTEXT = os.environ.get("EDITORIAL_CONTEXT", "").strip()
 CACHE_FILE = "weekly_cache.json"
+SNAPSHOT_DIR = os.environ.get("DISCORD_SNAPSHOT_DIR", "")
 
 CHANNELS = {
     "creators-exchange": "1458349180748828757",
@@ -20,6 +26,21 @@ CHANNELS = {
 }
 
 def fetch(channel_id, before=None):
+    if SNAPSHOT_DIR:
+        with open(os.path.join(SNAPSHOT_DIR, f"{channel_id}.json"), encoding="utf-8") as source:
+            messages = json.load(source)
+        messages = sorted(messages, key=lambda item: int(item["id"]), reverse=True)
+        if before:
+            messages = [item for item in messages if int(item["id"]) < int(before)]
+        return [
+            {
+                "id": item["id"],
+                "timestamp": item["timestamp"],
+                "content": item["content"],
+                "author": {"id": item["author_id"], "username": item["username"], "bot": False},
+            }
+            for item in messages[:100]
+        ]
     params = {"limit": 100}
     if before:
         params["before"] = before
@@ -28,7 +49,15 @@ def fetch(channel_id, before=None):
         "Authorization": f"Bot {TOKEN}",
         "User-Agent": "DiscordBot (https://github.com/JIASHI65/yoyo-community-report, 1.0)",
     })
-    return json.loads(urllib.request.urlopen(req, timeout=30).read())
+    for attempt in range(8):
+        try:
+            return json.loads(urllib.request.urlopen(req, timeout=30).read())
+        except urllib.error.HTTPError as exc:
+            if exc.code != 429 or attempt == 7:
+                raise
+            body = json.loads(exc.read())
+            time.sleep(float(body.get("retry_after", 1)) + 0.25)
+    raise RuntimeError("Discord rate limit retry exhausted")
 
 def count_week_full(channel_id):
     """Count + daily breakdown + user ranking + samples."""
@@ -36,8 +65,7 @@ def count_week_full(channel_id):
     cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=7)
     before = None
     for _ in range(60):
-        try: msgs = fetch(channel_id, before)
-        except: break
+        msgs = fetch(channel_id, before)
         if not msgs or not isinstance(msgs, list): break
         for m in msgs:
             ts = m.get("timestamp","")
@@ -54,17 +82,16 @@ def count_week_full(channel_id):
                     user_counts[uname] += 1
                     ct = m.get("content","")[:250].strip()
                     if ct and len(ct) > 3:
-                        samples.append(f"[{uname}]: {ct}")
-            else: return count, speakers, daily, user_counts, smart_sample(samples)
+                        samples.append((dt.strftime("%Y-%m-%d"), f"[{uname}]: {ct}"))
+            else: return count, speakers, daily, user_counts, balanced_sample(samples, 30)
         before = msgs[-1]["id"]
-    return count, speakers, daily, user_counts, smart_sample(samples)
+    return count, speakers, daily, user_counts, balanced_sample(samples, 30)
 
 def quick_count(channel_id):
     cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=7)
     count, before = 0, None
     for _ in range(30):
-        try: msgs = fetch(channel_id, before)
-        except: break
+        msgs = fetch(channel_id, before)
         if not msgs or not isinstance(msgs, list): break
         for m in msgs:
             ts = m.get("timestamp","")
@@ -80,8 +107,7 @@ def fetch_samples(channel_id, max_n=10):
     cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=7)
     samples, before = [], None
     for _ in range(20):
-        try: msgs = fetch(channel_id, before)
-        except: break
+        msgs = fetch(channel_id, before)
         if not msgs or not isinstance(msgs, list): break
         for m in msgs:
             ts = m.get("timestamp","")
@@ -97,10 +123,26 @@ def fetch_samples(channel_id, max_n=10):
         before = msgs[-1]["id"]
     return smart_sample(samples, max_n)
 
+def previous_snapshot_stats(cutoff):
+    previous_start = cutoff - datetime.timedelta(days=7)
+    previous_total = 0
+    previous_speakers = set()
+    for name, channel_id in CHANNELS.items():
+        with open(os.path.join(SNAPSHOT_DIR, f"{channel_id}.json"), encoding="utf-8") as source:
+            messages = json.load(source)
+        previous = [
+            item for item in messages
+            if previous_start <= datetime.datetime.fromisoformat(item["timestamp"].replace("Z", "+00:00")) < cutoff
+        ]
+        previous_total += len(previous)
+        if name == "creators-exchange":
+            previous_speakers = {item["author_id"] for item in previous}
+    return previous_total, previous_speakers
+
 def arkanalyze(messages, editorial_context=""):
     meaningful = [m for m in messages if len(m.strip()) > 5]
-    if not meaningful: return {"hot_discussions":[],"user_sentiment":"","pain_points":[],"highlights":[],"notable_quotes":[],"emerging_topics":"","content_categories":[{{"category":"分类名(如作品分享/问题咨询/正向反馈/闲聊/游戏设计讨论)","pct":整数百分比}}],
-    "content_categories":[],"keyword_cloud":[],"weekly_summary":"","mochi_mentions":"无","mochi_feedback":"无"}
+    if not meaningful:
+        raise RuntimeError("没有可供 LLM 分析的聊天样本")
     text = "\n".join(f"{i+1}. {m}" for i,m in enumerate(meaningful[:80]))
     editorial_section = ""
     if editorial_context:
@@ -116,7 +158,9 @@ def arkanalyze(messages, editorial_context=""):
 
 社群背景：这是一个游戏 UGC 创作者社群。
 
-请深度分析（周报数据少，每条消息都要深挖）：
+以下是按日期抽取的聊天样本，不是全量消息。只对样本支持的事实作判断；不要把样本频率外推成全频道比例，不要编造人数、环比或未出现的玩家原话。
+
+请深度分析：
 
 1. **热议话题深层解读**：具体聊什么内容？有什么分歧或共识？这个话题为什么重要？谁在主导讨论？对社群有什么潜在影响？
 2. **创作者痛点**：具体抱怨什么游戏机制、流程、体验？不只是说积分规则不清楚，要说清楚哪里不清楚、影响了谁、有多严重。
@@ -137,73 +181,13 @@ def arkanalyze(messages, editorial_context=""):
 
 聊天记录：
 {text}"""
-    data = json.dumps({"model":ARK_MODEL,"input":[{"role":"user","content":[{"type":"input_text","text":prompt}]}]}).encode()
-    req = urllib.request.Request("https://ark.cn-beijing.volces.com/api/v3/responses",data=data,headers={"Content-Type":"application/json","Authorization":f"Bearer {ARK_KEY}"})
+    data = json.dumps({"model":LLM_MODEL,"input":[{"role":"user","content":[{"type":"input_text","text":prompt}]}]}).encode()
+    req = urllib.request.Request(LLM_URL,data=data,headers={"Content-Type":"application/json","Authorization":f"Bearer {LLM_KEY}"})
     try:
-        resp = json.loads(urllib.request.urlopen(req,timeout=120).read())
+        resp = json.loads(urllib.request.urlopen(req,timeout=300).read())
     except urllib.error.HTTPError as exc:
         error_body = exc.read().decode("utf-8", errors="replace")
-        if "ClosedEndpoint" not in error_body and "NotFound" not in error_body:
-            raise RuntimeError(f"ARK API returned HTTP {exc.code}: {error_body}") from exc
-        raise RuntimeError(f"ARK model {ARK_MODEL} unavailable (HTTP {exc.code}): {error_body}") from exc
-        return {
-            "hot_discussions": [
-                {"theme":"创作者间争议与支持","detail":"本周多名成员讨论外部平台上的创作者争议、内容被删除及误解问题。skyopens主动要求澄清传言，其他成员则强调不评判、愿意帮助，说明社群面对冲突时仍具备较强的互助和情绪承接能力，但公开讨论外部纠纷也可能放大紧张感。","buzz":"🔥高","participants":"5人以上"},
-                {"theme":"积分兑换选择","detail":"成员集中交流积分获取、钻石、Google Play礼品卡和周边兑换。dogmawmie分享从2分提升到8分的经历，sakuraajade说明会累计积分兑换钻石，其他成员讨论税费和先攒积分再兑换的策略，反映奖励仍有吸引力，但规则与实际价值需要更直观说明。","buzz":"📊中","participants":"6人以上"},
-                {"theme":"作品互推与创作展示","detail":"多位创作者持续分享Instagram、Facebook和TikTok作品，并主动邀请成员点赞、评论和转发。作品包括Baldur's Gate、农场厨房等主题，社群互推机制仍在运转，但部分成员也提到现实事务繁忙、评论活跃度下降，需要避免互动压力影响长期参与。","buzz":"📊中","participants":"多人参与"},
-                {"theme":"现实生活与活跃压力","detail":"jesuisspica说明近期因经营Airbnb和假期客流会减少评论互动，aphrodite047098也提到九月事务积压、通知过多，甚至错过当月投稿。成员普遍给予理解，强调现实生活优先。这说明活跃下降并非简单流失，也可能来自信息负担和持续互动压力。","buzz":"📊中","participants":"4人以上"},
-                {"theme":"游戏与生活兴趣交流","detail":"成员讨论Stardew Valley、Baldur's Gate、秋季节庆、南瓜园和家庭出游，并通过宠物、穿搭和日常经历建立关系。此类非任务交流没有直接带来投稿数据，却承担了社群粘合功能，让创作者关系不只停留在积分和作品互赞。","buzz":"💬一般","participants":"多人参与"},
-                {"theme":"周边履约等待","detail":"yumikoo询问大家通常兑换什么，并明确提到新人免费周边仍在准备，担心再次兑换周边会继续等待，因此考虑改兑其他奖励。这个信号说明履约速度已经开始影响奖励偏好；若缺少进度预期，创作者可能将高感知价值的实体周边视为低确定性选项。","buzz":"📊中","participants":"3人以上"},
-                {"theme":"低分创作者成长反馈","detail":"dogmawmie分享首月只有2分、本月提升到8分，并表示即使难以达到金级或白金级也对进步感到高兴。其他成员解释互动门槛和Hard Work Award。该讨论证明分层激励对非头部创作者仍有效，但需要让中低分成员看见可达成的成长路径。","buzz":"📊中","participants":"4人以上"},
-                {"theme":"社群关系与去留信号","detail":"skyopens提出寻找新Clan，强调自己等级已满、过去贡献度高，但因原Clan出现问题而希望转移。虽然这不是KOC项目本身的退出，但反映高贡献用户对公平、关系和回报非常敏感；社群能否快速承接此类成员，会影响其后续活跃与口碑。","buzz":"💬一般","participants":"3人以上"}
-            ],
-            "user_sentiment":"整体以支持、温暖和分享成就为主，正面约70%；争议、误解、投稿与奖励困惑带来约30%的焦虑和疲惫。成员仍愿意相互安慰和协助，社群关系具备韧性。",
-            "pain_points":[
-                "创作者争议容易从外部平台带回社群：部分成员围绕删帖、传言和他人评价寻求澄清，容易造成情绪消耗。需要明确争议处理边界，引导当事人私下核实，避免公开扩散。",
-                "积分与奖励价值仍需要解释：成员会自行比较钻石、礼品卡、周边的兑换效率及税费，也有人不清楚低互动作品如何计分。建议提供兑换对照示例和常见计分场景。",
-                "通知和信息负担正在影响参与：有成员明确表示未读通知过多、阅读成本高，并因此错过九月投稿。关键规则和投稿提醒需要从聊天流中独立出来。",
-                "周边履约等待影响兑换选择：yumikoo表示新人免费周边仍在准备，因此担心再次兑换周边会等待更久，转而考虑其他奖励。需要公开大致履约周期。"
-            ],
-            "highlights":[
-                "多名成员主动安慰受到争议影响的创作者，并明确表示愿意提供帮助。",
-                "作品互推保持活跃，成员持续分享跨平台作品并互相提供互动支持。",
-                "dogmawmie将月积分从2分提升到8分，并以积极心态分享成长，形成低门槛正反馈。",
-                "成员主动分享游戏攻略、兑换经验和跨平台规则，社群自助答疑能力持续存在。"
-            ],
-            "notable_quotes":[
-                "We won’t judge you. Well, at least some of us won’t. And we can help you out.",
-                "Just know you have a lot of good people rooting for you!",
-                "Real life always comes first. We will be there when you come back.",
-                "I got 2 points my first month but finally this month I got 8 whole points.",
-                "What do u guys usually redeem?",
-                "I posted my weekly submission, thank you all in advance for the support."
-            ],
-            "emerging_topics":"创作者开始更主动地讨论奖励选择、互动压力和社群冲突边界。",
-            "content_categories":[
-                {"category":"作品分享与互推","pct":35},
-                {"category":"生活闲聊与情感支持","pct":25},
-                {"category":"积分与奖励兑换","pct":18},
-                {"category":"争议与规则讨论","pct":12},
-                {"category":"游戏攻略与求助","pct":10}
-            ],
-            "creator_signals":[
-                {"name":"skyopens","signal":"主动澄清传言并寻求新Clan","meaning":"高贡献成员重视公平和关系安全，需要及时承接，避免负面体验扩散。"},
-                {"name":"jesuisspica","signal":"因现实事务减少评论互动","meaning":"活跃下降属于阶段性精力变化，不应直接判断为流失。"},
-                {"name":"aphrodite047098","signal":"未读信息过多并错过九月投稿","meaning":"信息触达已影响实际转化，需要独立的截止提醒。"},
-                {"name":"dogmawmie","signal":"积分从2分提升到8分","meaning":"非头部创作者对可见进步有明显正反馈，适合强化成长型激励。"},
-                {"name":"yumikoo","signal":"因周边等待考虑更换兑换项","meaning":"履约周期正在影响奖励偏好与周边吸引力。"},
-                {"name":"space.system","signal":"持续分享作品和游戏信息","meaning":"具备内容供给与答疑能力，可作为社群互助节点观察。"}
-            ],
-            "decision_priorities":[
-                {"level":"P0","title":"投稿信息独立触达","reason":"已有成员因通知过多错过投稿，直接影响当月产出回收。","action":"固定频道置顶截止时间，并在截止前72小时和24小时各提醒一次。"},
-                {"level":"P0","title":"奖励与履约透明化","reason":"创作者正在比较礼品卡、钻石和周边，履约等待已改变兑换选择。","action":"公开奖励对照表、税费提示及周边预计处理周期。"},
-                {"level":"P1","title":"争议降温机制","reason":"外部平台传言被带入群内，正在消耗创作者关系和讨论注意力。","action":"建立私下核实与管理员承接流程，避免未经确认的信息持续公开扩散。"},
-                {"level":"P1","title":"中低分成长反馈","reason":"2分到8分的进步已带来明显成就感，说明非头部激励仍有空间。","action":"增加月度进步榜或阶段徽章，让成长不只依赖顶级等级。"}
-            ],
-            "keyword_cloud":["作品分享","积分","钻石","周边","礼品卡","互助","争议","投稿","互动","宠物","生活","兑换"],
-            "weekly_summary":"本周社群保持较高活跃度，作品互推与奖励兑换讨论持续，同时出现外部创作者争议回流社群的情况。建议补充积分兑换对照说明，并建立轻量的争议处理指引，保护创作者关系和长期参与意愿。",
-            "monthly_summary":"【问题诊断】1. 外部平台争议回流社群，成员需要公开澄清传言，容易放大误解并消耗创作情绪。2. 积分、钻石、礼品卡和周边的价值比较仍依赖成员口口相传，低互动作品如何计分也不够直观。3. 未读通知和信息负担已经造成成员错过投稿，周边履约等待也开始影响奖励选择。\n【行动建议】1. 发布一张积分与奖励兑换对照卡，包含常见分数、兑换选择、税费差异和周边预计周期。2. 将投稿截止、规则变化和必要动作集中到固定公告，减少创作者从大量聊天中找信息。3. 建立争议处理边界：公开频道不扩散未经核实的传言，优先私下确认；同时保留社群互助，不让受影响成员独自承受。4. 延续每周作品互推，但强调自愿参与，降低持续点赞评论带来的压力。\n【路线图】本周完成兑换对照卡和投稿提醒；两周内整理争议处理话术、周边履约说明并观察重复咨询量；一个月内复盘投稿漏交、奖励咨询和公开争议次数，判断信息分流是否有效。"
-        }
+        raise RuntimeError(f"LLM model {LLM_MODEL} failed (HTTP {exc.code}): {error_body}") from exc
     for item in resp.get("output",[]):
         if item.get("type") == "message":
             for c in item.get("content",[]):
@@ -211,9 +195,13 @@ def arkanalyze(messages, editorial_context=""):
                     try:
                         raw = c.get("text","").strip()
                         for fence in ["```json","```"]: raw = raw.replace(fence,"")
-                        return json.loads(raw)
-                    except: return {"hot_discussions":[],"user_sentiment":c.get("text","")[:200],"pain_points":[],"highlights":[],"notable_quotes":[],"emerging_topics":"","content_categories":[],"keyword_cloud":[],"weekly_summary":"","mochi_mentions":"无","mochi_feedback":"无"}
-    return {"hot_discussions":[],"user_sentiment":"分析失败","pain_points":[],"highlights":[],"notable_quotes":[],"emerging_topics":"","content_categories":[],"keyword_cloud":[],"weekly_summary":"","mochi_mentions":"无","mochi_feedback":"无"}
+                        analysis = json.loads(raw)
+                        if not isinstance(analysis.get("hot_discussions"), list) or not analysis["hot_discussions"]:
+                            raise ValueError("LLM analysis has no discussion topics")
+                        return analysis
+                    except (json.JSONDecodeError, ValueError, AttributeError) as exc:
+                        raise RuntimeError("LLM returned invalid weekly analysis") from exc
+    raise RuntimeError("LLM returned no weekly analysis")
 
 def fmt_change(c,p):
     if p==0 and c==0: return "-"
@@ -239,6 +227,22 @@ def smart_sample(samples, n=40):
     scored = [(score_message(s), s) for s in samples]
     scored.sort(key=lambda x: -x[0])
     return [s for _, s in scored[:n]]
+
+def balanced_sample(samples, limit):
+    by_day = collections.defaultdict(list)
+    for day, message in samples:
+        by_day[day].append(message)
+    if not by_day:
+        return []
+    quota = max(1, limit // len(by_day))
+    selected = []
+    remaining = []
+    for day in sorted(by_day):
+        ranked = sorted(by_day[day], key=score_message, reverse=True)
+        selected.extend(ranked[:quota])
+        remaining.extend(ranked[quota:])
+    selected.extend(smart_sample(remaining, limit - len(selected)))
+    return selected[:limit]
 
 PUBLIC_BLOCK_TERMS = ("mochi", "摸鱼", "yoyo assistant", "助手", "机器人功能", "bot功能")
 
@@ -311,28 +315,28 @@ def main():
     try:
         with open(CACHE_FILE) as f: cache = json.load(f)
     except: pass
-    prev_week = cache.get("weeks",[])[-1] if cache.get("weeks") else None
-    prev_total = prev_week.get("total",0) if prev_week else 0
-    prev_speakers = set(prev_week.get("speakers_chat",[])) if prev_week else set()
+    if SNAPSHOT_DIR:
+        prev_total, prev_speakers = previous_snapshot_stats(datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=7))
+    else:
+        prev_week = cache.get("weeks",[])[-1] if cache.get("weeks") else None
+        prev_total = prev_week.get("total",0) if prev_week else 0
+        prev_speakers = set(prev_week.get("speakers_chat",[])) if prev_week else set()
     new_speakers = main_speakers - prev_speakers
     returning = main_speakers & prev_speakers
 
     # Step 4: ARK Analysis
     analysis = {}
-    if not ARK_KEY or not all_samples:
-        raise RuntimeError("缺少 ARK_API_KEY 或可分析的消息样本；拒绝生成无 LLM 分析的周报")
-    if ARK_KEY and all_samples:
-        print(f"\n🤖 ARK 深度分析... (样本{len(all_samples)}条, {sum(len(m) for m in all_samples)}字符)")
-        analysis = arkanalyze(all_samples, EDITORIAL_CONTEXT)
-        topics_list = [d.get('theme','') for d in analysis.get('hot_discussions',[])]
-        print(f"  🔥 话题: {', '.join(topics_list[:5])}")
-        print(f"  💬 情绪: {analysis.get('user_sentiment','?')[:100]}")
-        print(f"  ⚠️ 痛点: {', '.join(analysis.get('pain_points',[])[:3])}")
-    else:
-        if not ARK_KEY: print("⚠️ 未设置 ARK_API_KEY，跳过分析")
+    if not LLM_KEY or not all_samples:
+        raise RuntimeError("缺少 LLM API Key 或可分析的消息样本；拒绝生成无 LLM 分析的周报")
+    if OPENAI_KEY and not os.environ.get("OPENAI_BASE_URL"):
+        raise RuntimeError("使用中转 API Key 时必须设置 OPENAI_BASE_URL")
+    print(f"\n🤖 LLM 深度分析... (样本{len(all_samples)}条, {sum(len(m) for m in all_samples)}字符)")
+    analysis = arkanalyze(all_samples, EDITORIAL_CONTEXT)
+    topics_list = [item.get("theme", "") for item in analysis.get("hot_discussions", [])]
+    print(f"  🔥 话题: {', '.join(topics_list[:5])}")
 
     # Step 4.5: Second ARK call - problem diagnosis & action plan
-    if ARK_KEY and all_samples:
+    if LLM_KEY and all_samples:
         print("\n🧠 第二轮 ARK: 运营分析...")
         editorial_instruction = ""
         if EDITORIAL_CONTEXT:
@@ -342,10 +346,10 @@ def main():
                   "不得伪造成玩家原话、聊天事实或统计数据。"
             )
         strat_prompt = "你是游戏创作者社群的运营分析师。基于本周聊天数据，用中文写一个200字以上的运营总结，必须包含三段：\n\n【问题诊断】列出1-2个核心问题及影响\n【行动建议】给出2-3条可执行动作+预期效果\n【路线图】本周做什么→两周内做什么→一个月内达成什么" + editorial_instruction + "\n\n聊天数据：\n" + "\n".join(all_samples[:40])
-        strat_data = json.dumps({"model":ARK_MODEL,"input":[{"role":"user","content":[{"type":"input_text","text":strat_prompt}]}]}).encode()
-        strat_req = urllib.request.Request("https://ark.cn-beijing.volces.com/api/v3/responses",data=strat_data,headers={"Content-Type":"application/json","Authorization":f"Bearer {ARK_KEY}"})
+        strat_data = json.dumps({"model":LLM_MODEL,"input":[{"role":"user","content":[{"type":"input_text","text":strat_prompt}]}]}).encode()
+        strat_req = urllib.request.Request(LLM_URL,data=strat_data,headers={"Content-Type":"application/json","Authorization":f"Bearer {LLM_KEY}"})
         try:
-            strat_resp = json.loads(urllib.request.urlopen(strat_req,timeout=60).read())
+            strat_resp = json.loads(urllib.request.urlopen(strat_req,timeout=300).read())
             for item in strat_resp.get("output",[]):
                 if item.get("type")=="message":
                     for c in item.get("content",[]):
@@ -357,7 +361,9 @@ def main():
                             else:
                                 analysis["monthly_summary"] = strat_text[:500]
         except Exception as e:
-            print(f"  ⚠️ 运营分析失败: {e}")
+            raise RuntimeError("LLM 运营分析失败，拒绝生成不完整周报") from e
+        if not analysis.get("monthly_summary"):
+            raise RuntimeError("LLM 未返回问题诊断与行动计划，拒绝生成不完整周报")
 
     analysis = sanitize_public_analysis(analysis)
 
@@ -572,7 +578,7 @@ body{{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,'Inter','Segoe 
   <div class="logo">📊 Weekly Report</div>
   <h1>Yoyo Creative Studio</h1>
   <div class="subtitle">{week_label} · KOC 创作者社群周报 · {now.strftime('%Y/%m/%d')} 生成</div>
-  <span class="badge">🤖 Mochi Bot · 深度分析 by DeepSeek</span>
+  <span class="badge">🤖 Mochi Bot · LLM 深度分析</span>
 </div>
 
 {alert_html}
@@ -612,8 +618,8 @@ body{{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,'Inter','Segoe 
 </div>
 
 <div class="footer">
-  <p>🤖 由 GitHub Actions 自动生成 · {now.strftime('%Y年%m月%d日 %H:%M')} UTC</p>
-  <p>数据来源: Discord · Yoyo Creative Studio · 话题分析: DeepSeek V4 Flash · 通过 ARK API</p>
+  <p>🤖 自动生成 · {now.strftime('%Y年%m月%d日 %H:%M')} UTC</p>
+  <p>数据来源: Discord · Yoyo Creative Studio · 话题分析: {LLM_SOURCE} ({LLM_MODEL})</p>
 </div>
 
 </div></body></html>'''
@@ -624,6 +630,7 @@ body{{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,'Inter','Segoe 
 
     # Step 6: Save cache
     cache.setdefault("weeks",[])
+    cache["weeks"] = [item for item in cache["weeks"] if item.get("week") != week_key or item.get("label") != week_label]
     cache["weeks"].append({
         "week":week_key,"label":week_label,"total":total,"chat_area":mc,
         "speakers_chat":list(main_speakers),"speakers_count":mc_speakers,
@@ -673,7 +680,7 @@ body{{background:#0a0e17;color:#e0e6f0;font-family:-apple-system,'Inter','Segoe 
                 },
                 {
                     "tag": "note",
-                    "elements": [{"tag": "plain_text", "content": "🤖 Mochi Bot · LLM分析 by ARK DeepSeek · 每周一更新"}],
+                    "elements": [{"tag": "plain_text", "content": f"🤖 Mochi Bot · LLM分析 by {LLM_SOURCE} · 每周一更新"}],
                 },
             ],
         },
