@@ -145,7 +145,7 @@ def arkanalyze(messages, editorial_context=""):
         error_body = exc.read().decode("utf-8", errors="replace")
         if "ClosedEndpoint" not in error_body and "NotFound" not in error_body:
             raise RuntimeError(f"ARK API returned HTTP {exc.code}: {error_body}") from exc
-        print(f"  ⚠️ ARK 接入点不可用，使用本周人工恢复分析: HTTP {exc.code}")
+        raise RuntimeError(f"ARK model {ARK_MODEL} unavailable (HTTP {exc.code}): {error_body}") from exc
         return {
             "hot_discussions": [
                 {"theme":"创作者间争议与支持","detail":"本周多名成员讨论外部平台上的创作者争议、内容被删除及误解问题。skyopens主动要求澄清传言，其他成员则强调不评判、愿意帮助，说明社群面对冲突时仍具备较强的互助和情绪承接能力，但公开讨论外部纠纷也可能放大紧张感。","buzz":"🔥高","participants":"5人以上"},
@@ -319,6 +319,8 @@ def main():
 
     # Step 4: ARK Analysis
     analysis = {}
+    if not ARK_KEY or not all_samples:
+        raise RuntimeError("缺少 ARK_API_KEY 或可分析的消息样本；拒绝生成无 LLM 分析的周报")
     if ARK_KEY and all_samples:
         print(f"\n🤖 ARK 深度分析... (样本{len(all_samples)}条, {sum(len(m) for m in all_samples)}字符)")
         analysis = arkanalyze(all_samples, EDITORIAL_CONTEXT)

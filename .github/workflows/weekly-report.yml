@@ -14,6 +14,10 @@ on:
         required: false
         default: false
         type: boolean
+      ark_model:
+        description: 'ARK 模型 ID（可选，用于接入点切换）'
+        required: false
+        type: string
 
 jobs:
   build:
@@ -31,6 +35,7 @@ jobs:
         env:
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
           ARK_API_KEY: ${{ secrets.ARK_API_KEY }}
+          ARK_MODEL: ${{ inputs.ark_model || 'doubao-seed-1-6-flash-250715' }}
           EDITORIAL_CONTEXT: ${{ inputs.editorial_context }}
         run: python3 scripts/generate_weekly.py
 
