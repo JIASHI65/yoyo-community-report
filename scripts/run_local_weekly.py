@@ -19,12 +19,20 @@ PROXY_URL = "http://127.0.0.1:15721/v1"
 
 
 def command(*args, cwd=None, env=None, input_bytes=None):
-    result = subprocess.run(
-        args, cwd=cwd, env=env, input=input_bytes, capture_output=True, check=False
-    )
-    if result.returncode:
-        raise RuntimeError(f"{' '.join(args[:3])} failed: {result.stderr.decode(errors='replace')[-2000:]}")
-    return result.stdout
+    for attempt in range(4):
+        result = subprocess.run(
+            args, cwd=cwd, env=env, input=input_bytes, capture_output=True, check=False
+        )
+        if result.returncode == 0:
+            return result.stdout
+        error = result.stderr.decode(errors="replace")
+        transient = args[0] == "gh" and any(
+            marker in error.lower() for marker in
+            ("timeout", "stream error", "connection reset", "tls handshake", "eof")
+        )
+        if not transient or attempt == 3:
+            raise RuntimeError(f"{' '.join(args[:3])} failed: {error[-2000:]}")
+        time.sleep(5 * (attempt + 1))
 
 
 def keychain_secret(service):
