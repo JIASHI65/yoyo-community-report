@@ -23,7 +23,7 @@ def command(*args, cwd=None, env=None, input_bytes=None):
         args, cwd=cwd, env=env, input=input_bytes, capture_output=True, check=False
     )
     if result.returncode:
-        raise RuntimeError(f"{' '.join(args[:3])} failed: {result.stderr.decode(errors='replace')[:500]}")
+        raise RuntimeError(f"{' '.join(args[:3])} failed: {result.stderr.decode(errors='replace')[-2000:]}")
     return result.stdout
 
 
@@ -50,7 +50,14 @@ def wait_for_run(run_id):
 
 
 def encrypted_scan(run_id):
-    lines = command("gh", "run", "view", run_id, "--repo", REPO, "--log").decode().splitlines()
+    for attempt in range(4):
+        try:
+            lines = command("gh", "run", "view", run_id, "--repo", REPO, "--log").decode().splitlines()
+            break
+        except RuntimeError:
+            if attempt == 3:
+                raise
+            time.sleep(5 * (attempt + 1))
     encoded = []
     capturing = False
     for line in lines:

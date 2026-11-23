@@ -59,6 +59,19 @@ def fetch(channel_id, before=None):
             time.sleep(float(body.get("retry_after", 1)) + 0.25)
     raise RuntimeError("Discord rate limit retry exhausted")
 
+def llm_response(request):
+    for attempt in range(3):
+        try:
+            return json.loads(urllib.request.urlopen(request, timeout=300).read())
+        except urllib.error.HTTPError as exc:
+            body = exc.read().decode("utf-8", errors="replace")
+            if exc.code < 500 or attempt == 2:
+                raise RuntimeError(f"LLM model {LLM_MODEL} failed (HTTP {exc.code}): {body}") from exc
+        except (TimeoutError, urllib.error.URLError):
+            if attempt == 2:
+                raise
+        time.sleep(5 * (attempt + 1))
+
 def count_week_full(channel_id):
     """Count + daily breakdown + user ranking + samples."""
     count, speakers, daily, user_counts, samples = 0, set(), collections.Counter(), collections.Counter(), []
@@ -183,11 +196,7 @@ def arkanalyze(messages, editorial_context=""):
 {text}"""
     data = json.dumps({"model":LLM_MODEL,"input":[{"role":"user","content":[{"type":"input_text","text":prompt}]}]}).encode()
     req = urllib.request.Request(LLM_URL,data=data,headers={"Content-Type":"application/json","Authorization":f"Bearer {LLM_KEY}"})
-    try:
-        resp = json.loads(urllib.request.urlopen(req,timeout=300).read())
-    except urllib.error.HTTPError as exc:
-        error_body = exc.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"LLM model {LLM_MODEL} failed (HTTP {exc.code}): {error_body}") from exc
+    resp = llm_response(req)
     for item in resp.get("output",[]):
         if item.get("type") == "message":
             for c in item.get("content",[]):
@@ -349,7 +358,7 @@ def main():
         strat_data = json.dumps({"model":LLM_MODEL,"input":[{"role":"user","content":[{"type":"input_text","text":strat_prompt}]}]}).encode()
         strat_req = urllib.request.Request(LLM_URL,data=strat_data,headers={"Content-Type":"application/json","Authorization":f"Bearer {LLM_KEY}"})
         try:
-            strat_resp = json.loads(urllib.request.urlopen(strat_req,timeout=300).read())
+            strat_resp = llm_response(strat_req)
             for item in strat_resp.get("output",[]):
                 if item.get("type")=="message":
                     for c in item.get("content",[]):
