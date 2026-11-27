@@ -46,7 +46,7 @@ def main():
     )
     before = None
     messages = []
-    for _ in range(100):
+    for _ in range(300):
         batch = fetch(before)
         if not batch:
             break
